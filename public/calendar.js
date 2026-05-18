@@ -40,9 +40,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         extraLine = `<div class="fc-score-line ${colorClass}">${raw.result} ${raw.asu_score}-${raw.opp_score}</div>`;
       }
 
+      const sport = raw?.sport || '';
       wrapper.innerHTML = `
         <div class="fc-event-time">${info.timeText}</div>
         <div class="fc-event-title-container">
+          ${sport ? `<div class="fc-event-sport">${sport}</div>` : ''}
           <div class="fc-event-title fc-sticky">${info.event.title}</div>
           ${extraLine}
         </div>`;
@@ -59,14 +61,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       calendar.refetchEvents();
     } else if (view === 'map') {
       window.renderMapView && window.renderMapView();
+    } else if (view === 'live') {
+      window.renderLiveView && window.renderLiveView();
     } else {
       renderListView();
     }
   };
 
-  // Initial list render if that view is active
-  const savedView = localStorage.getItem('asu-cal-view') || 'calendar';
-  if (savedView === 'list') renderListView();
 });
 
 function toPhoenixISO(ts) {
@@ -82,7 +83,7 @@ async function loadCalendarEvents(fetchInfo, successCallback, failureCallback) {
     const events = await fetchEvents();
     const mapped = events.map(e => ({
       id: e.id,
-      title: e.title,
+      title: shortTitle(e.title),
       start: e.start_date ? toPhoenixISO(e.start_date) : null,
       end: e.end_date ? toPhoenixISO(e.end_date) : null,
       backgroundColor: sportColor(e.sport),
@@ -152,15 +153,20 @@ async function renderListView() {
       container.appendChild(group);
     }
 
-    // Scroll to the first event on or after today
+    // Scroll container so the first event on or after today is at the top
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayTs = todayStart.getTime() / 1000;
     const futureEvents = visibleEvents.filter(e => e.start_date >= todayTs);
     if (futureEvents.length > 0) {
       const firstId = futureEvents[0].id;
-      const el = container.querySelector(`.list-event[data-event-id="${firstId}"]`);
-      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      requestAnimationFrame(() => {
+        const el = container.querySelector(`.list-event[data-event-id="${firstId}"]`);
+        if (!el) return;
+        const elRect = el.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        container.scrollTop += elRect.top - containerRect.top;
+      });
     }
   } catch (err) {
     container.innerHTML = '<div class="empty-state"><h3>Failed to load events</h3></div>';
@@ -170,9 +176,11 @@ async function renderListView() {
 
 function listEventHTML(e) {
   const color = sportColor(e.sport);
-  const time = e.start_date
+  const rawTime = e.start_date
     ? new Date(e.start_date * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' })
     : '';
+  // Suppress midnight — it's the feed's "no time set" placeholder
+  const time = rawTime === '12:00 AM' ? '' : rawTime;
 
   const metaParts = [e.sport, e.city ? `${e.city}, ${e.state || ''}`.trim().replace(/,$/, '') : null].filter(Boolean);
   const badges = e.badges ? e.badges.split('|').filter(Boolean).map(b => `<span class="badge">${b.trim()}</span>`).join('') : '';
@@ -185,7 +193,7 @@ function listEventHTML(e) {
   return `
     <span class="list-event-dot" style="background:${color}"></span>
     <div class="list-event-main">
-      <div class="list-event-title">${e.title || 'Event'}${badges}</div>
+      <div class="list-event-title">${shortTitle(e.title)}${badges}</div>
       <div class="list-event-meta">${metaParts.join(' · ')}</div>
     </div>
     <div class="list-event-right">

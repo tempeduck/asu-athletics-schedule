@@ -175,7 +175,7 @@ function upsertESPNEvent(event) {
 
 function getEventsNeedingGeocode() {
   return db.prepare(
-    'SELECT id, venue_address FROM events WHERE venue_address IS NOT NULL AND lat IS NULL'
+    'SELECT id, venue_address, location_name, game_type FROM events WHERE venue_address IS NOT NULL AND lat IS NULL'
   ).all();
 }
 

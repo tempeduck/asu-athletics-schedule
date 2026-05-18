@@ -21,7 +21,10 @@
   <div class="logo"><span>ASU</span><span class="logo-text"> Sun Devil Athletics</span></div>
   <div class="header-controls">
     <div class="view-toggle">
-      <button id="btn-calendar-view" class="active" onclick="setView('calendar')">Calendar</button>
+      <button id="btn-live-view" onclick="setView('live')">
+        <span id="live-tab-dot" class="live-tab-dot" style="display:none"></span>Live
+      </button>
+      <button id="btn-calendar-view" onclick="setView('calendar')">Calendar</button>
       <button id="btn-list-view" onclick="setView('list')">List</button>
       <button id="btn-map-view" onclick="setView('map')">Map</button>
     </div>
@@ -84,6 +87,7 @@
 
   <main>
     <div id="live-banner" hidden></div>
+    <div id="live-view"></div>
     <div id="calendar-view">
       <div id="calendar"></div>
     </div>
@@ -109,10 +113,10 @@
   </div>
 </div>
 
-<script src="filters.js?v=4"></script>
-<script src="calendar.js?v=4"></script>
-<script src="map.js?v=1"></script>
-<script src="live.js?v=4"></script>
+<script src="filters.js?v=8"></script>
+<script src="calendar.js?v=7"></script>
+<script src="map.js?v=2"></script>
+<script src="live.js?v=12"></script>
 
 </body>
 </html>

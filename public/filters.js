@@ -195,14 +195,36 @@ async function fetchEvents() {
 
 // ── Modal ──────────────────────────────────────────────
 
+function shortTitle(title) {
+  if (!title) return 'Event';
+  return title
+    .replace(/^Sun Devil [^:]+:\s*/i, '')
+    .replace(/^Arizona State\s+/i, '');
+}
+
+function cleanDisplayAddress(addr) {
+  if (!addr) return '';
+  return addr
+    .replace(/(?:#[^,\s]+|\b(?:Suite|Ste\.?|Unit)\s+\w+)\s*/gi, '')
+    .trim()
+    .replace(/\s+,/g, ',')
+    .replace(/,\s*,/g, ',')
+    .replace(/,\s*$/, '');
+}
+
 function formatTs(ts) {
   if (!ts) return '';
   const d = new Date(ts * 1000);
-  return d.toLocaleString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit', timeZone:'America/Phoenix' });
+  const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' });
+  // Midnight Phoenix = feed placeholder for "time unknown" — show date only
+  if (timeStr === '12:00 AM') {
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Phoenix' });
+  }
+  return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' });
 }
 
 function openEventModal(event) {
-  document.getElementById('modal-title').textContent = event.title || 'Event';
+  document.getElementById('modal-title').textContent = shortTitle(event.title);
   document.getElementById('modal-sport').textContent = [event.sport, event.event_type].filter(Boolean).join(' · ');
 
   const logo = document.getElementById('modal-logo');
@@ -225,10 +247,12 @@ function openEventModal(event) {
     rows.push(row('🏆', 'Result', `<span class="score-badge ${scoreClass}">${event.result} ${event.asu_score}–${event.opp_score}</span> <span style="color:var(--text-muted);font-size:0.8rem">${label}</span>`));
   }
 
-  rows.push(row('📅', 'When', formatTs(event.start_date) + (event.end_date && event.end_date !== event.start_date ? ` – ${formatTs(event.end_date)}` : '')));
+  const endStr = event.end_date && event.end_date !== event.start_date ? formatTs(event.end_date) : '';
+  rows.push(row('📅', 'When', endStr ? `${formatTs(event.start_date)} – ${endStr}` : formatTs(event.start_date)));
 
   if (event.location_name || event.venue_address) {
-    rows.push(row('📍', 'Venue', [event.location_name, event.venue_address].filter(Boolean).join('<br/>')));
+    const cleanAddr = cleanDisplayAddress(event.venue_address);
+    rows.push(row('📍', 'Venue', [event.location_name, cleanAddr].filter(Boolean).join('<br/>')));
   }
   if (event.city || event.state) {
     rows.push(row('🏙️', 'Location', [event.city, event.state].filter(Boolean).join(', ')));
@@ -310,22 +334,29 @@ function toggleFilters() {
 // ── View toggle ────────────────────────────────────────
 
 function setView(view) {
+  const liveView = document.getElementById('live-view');
   const calView  = document.getElementById('calendar-view');
   const listView = document.getElementById('list-view');
   const mapView  = document.getElementById('map-view');
+  const btnLive  = document.getElementById('btn-live-view');
   const btnCal   = document.getElementById('btn-calendar-view');
   const btnList  = document.getElementById('btn-list-view');
   const btnMap   = document.getElementById('btn-map-view');
 
   // Always use explicit 'none'/'block' so inline styles override any CSS display:none
+  if (liveView)  liveView.style.display  = 'none';
   calView.style.display  = 'none';
   listView.style.display = 'none';
   mapView.style.display  = 'none';
-  [btnCal, btnList, btnMap].forEach(b => b && b.classList.remove('active'));
+  [btnLive, btnCal, btnList, btnMap].forEach(b => b && b.classList.remove('active'));
 
-  if (view === 'calendar') {
+  if (view === 'live') {
+    if (liveView) liveView.style.display = 'block';
+    btnLive && btnLive.classList.add('active');
+    window.renderLiveView && window.renderLiveView();
+  } else if (view === 'calendar') {
     calView.style.display = 'block';
-    btnCal.classList.add('active');
+    btnCal && btnCal.classList.add('active');
     window.__calendar && window.__calendar.updateSize();
   } else if (view === 'map') {
     mapView.style.display = 'block';
@@ -333,15 +364,25 @@ function setView(view) {
     window.renderMapView && window.renderMapView();
   } else {
     listView.style.display = 'block';
-    btnList.classList.add('active');
+    btnList && btnList.classList.add('active');
     window.renderListView && window.renderListView();
   }
 
   localStorage.setItem('asu-cal-view', view);
 }
 
-// Init
-loadFilterOptions();
-const savedView = localStorage.getItem('asu-cal-view') || 'calendar';
-if (savedView === 'list') setView('list');
-else if (savedView === 'map') setView('map');
+// Init — wait for all scripts to parse before calling setView/renderLiveView.
+document.addEventListener('DOMContentLoaded', () => {
+  const savedView = localStorage.getItem('asu-cal-view') || 'calendar';
+  setView(savedView);
+  loadFilterOptions();
+});
+
+// Restore correct tab and restart polling after iOS Safari bfcache restore.
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) {
+    const v = localStorage.getItem('asu-cal-view') || 'calendar';
+    setView(v);
+    window.startLivePolling && window.startLivePolling();
+  }
+});

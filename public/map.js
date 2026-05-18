@@ -149,9 +149,3 @@ function esc(str) {
 }
 
 window.renderMapView = renderMapView;
-
-// If the map tab was the last active view, render it once the DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-  const savedView = localStorage.getItem('asu-cal-view') || 'calendar';
-  if (savedView === 'map') renderMapView();
-});

@@ -36,6 +36,12 @@ function cleanSuiteUnit(address) {
     .replace(/,\s*,/g, ',');
 }
 
+// Large mailbox numbers (#NNNN with 4+ digits in the street segment) indicate a
+// mailing address (UPS Store box etc.) rather than the actual venue.
+function isMailboxAddress(address) {
+  return /#\d{4,}/.test(address.split(',')[0]);
+}
+
 function extractCityState(address) {
   const m = address.match(/,\s*([^,]+,\s*[A-Z]{2})(?:\s+\d{5}(?:-\d{4})?)?\s*$/);
   return m ? m[1].trim() : null;
@@ -54,19 +60,24 @@ async function geocodeAllMissing() {
 
   console.log(`[geocoder] Geocoding ${events.length} events`);
 
-  // Deduplicate by address — only call Nominatim once per unique address
+  // Deduplicate by address — only call Nominatim once per unique address.
+  // Carry location_name and game_type for mailbox-address fallback.
   const addressMap = {};
   for (const e of events) {
     if (!e.venue_address) continue;
-    if (!addressMap[e.venue_address]) addressMap[e.venue_address] = [];
-    addressMap[e.venue_address].push(e.id);
+    if (!addressMap[e.venue_address]) {
+      addressMap[e.venue_address] = { ids: [], location_name: e.location_name, game_type: e.game_type };
+    }
+    addressMap[e.venue_address].ids.push(e.id);
   }
 
   let success = 0;
   let failed = 0;
   let first = true;
 
-  for (const [address, ids] of Object.entries(addressMap)) {
+  for (const [address, entry] of Object.entries(addressMap)) {
+    const { ids, location_name, game_type } = entry;
+
     // Respect Nominatim's 1 req/sec policy
     if (!first) await sleep(1100);
     first = false;
@@ -89,17 +100,32 @@ async function geocodeAllMissing() {
         continue;
       }
 
-      let coords = await geocodeAddress(address);
+      let coords = null;
       let resolvedAddress = address;
 
-      // (3) Strip suite/unit suffixes (#3410, Ste 200, Unit B)
+      // (3) Mailbox addresses (#NNNN with 4+ digits) are mailing addresses, not venues.
+      // For away games with a location_name, try that first to get accurate coordinates.
+      if (isMailboxAddress(address) && game_type === 'away' && location_name) {
+        const cityState = extractCityState(address);
+        const query = cityState ? `${location_name}, ${cityState}` : location_name;
+        coords = await geocodeAddress(query);
+        if (coords) {
+          resolvedAddress = query;
+        } else {
+          await sleep(1100);
+        }
+      }
+
+      if (!coords) coords = await geocodeAddress(address);
+
+      // (4) Strip suite/unit suffixes (#3410, Ste 200, Unit B)
       if (!coords && /(?:#\S+|\b(?:Suite|Ste\.?|Unit)\s+\w+)/i.test(address)) {
         await sleep(1100);
         resolvedAddress = cleanSuiteUnit(address);
         coords = await geocodeAddress(resolvedAddress);
       }
 
-      // (4) Venue names (no leading digit) — fall back to city, state
+      // (5) Venue names (no leading digit) — fall back to city, state
       if (!coords && !/^\d/.test(address)) {
         const cityState = extractCityState(address);
         if (cityState) {
@@ -109,7 +135,7 @@ async function geocodeAllMissing() {
         }
       }
 
-      // (5) Hyphenated range like "1628-1696 Foo St" — try just the first number
+      // (6) Hyphenated range like "1628-1696 Foo St" — try just the first number
       if (!coords && /^\d+-\d+/.test(address)) {
         await sleep(1100);
         resolvedAddress = dehyphenate(address);

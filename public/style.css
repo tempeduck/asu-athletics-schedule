@@ -441,6 +441,18 @@ main {
 .score-l { background: #b71c1c; color: #fff; }
 .score-t { background: #555;    color: #fff; }
 
+/* Calendar event sport label */
+.fc-event-sport {
+  font-size: 0.65rem;
+  font-weight: 700;
+  opacity: 0.85;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Calendar cell score line */
 .fc-score-line {
   font-size: 0.68rem;
@@ -633,6 +645,409 @@ main {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
+/* ── Live tab view ── */
+#live-view {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 24px;
+  display: none;
+}
+
+/* ── Live section headers ── */
+.live-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--maroon);
+  border-bottom: 2px solid var(--gold);
+  padding-bottom: 4px;
+  margin-bottom: 14px;
+  margin-top: 20px;
+}
+
+.live-section-header:first-child { margin-top: 0; }
+
+.live-section-live { color: #b71c1c; border-bottom-color: #b71c1c; }
+
+/* ── Card grid ── */
+.live-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+/* ── Individual game card ── */
+.live-card {
+  background: var(--surface);
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  cursor: default;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.live-card:hover {
+  box-shadow: 0 3px 12px rgba(0,0,0,0.12);
+}
+
+.card-live {
+  border-color: #b71c1c;
+  box-shadow: 0 0 0 1px rgba(183,28,28,0.15);
+  animation: live-card-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes live-card-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(183,28,28,0.15); }
+  50%       { box-shadow: 0 0 0 3px rgba(183,28,28,0.25); }
+}
+
+.card-upcoming { border-color: var(--border); opacity: 0.9; }
+.card-final    { border-color: var(--border); }
+
+/* ── Card header ── */
+.live-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.live-card-sport {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.live-card-tv {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg);
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+/* ── Status badges ── */
+.live-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.live-status-live {
+  background: #b71c1c;
+  color: #fff;
+}
+
+.live-status-final {
+  background: #444;
+  color: #fff;
+}
+
+.live-status-upcoming {
+  background: #e8f0fe;
+  color: #1a56db;
+}
+
+/* ── Matchup row ── */
+.live-card-matchup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.live-card-team {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.live-card-logo {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.live-card-asu-badge {
+  width: 44px;
+  height: 44px;
+  background: var(--maroon);
+  color: var(--gold);
+  font-size: 0.85rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  letter-spacing: 1px;
+}
+
+.live-card-logo-placeholder {
+  width: 44px;
+  height: 44px;
+  background: #e0e0e0;
+  color: #555;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+.live-card-team-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.live-card-score {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+}
+
+.live-card-score.score-winner { color: var(--maroon); }
+
+.live-card-vs {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  text-align: center;
+  min-width: 36px;
+}
+
+/* ── Sport details ── */
+.live-card-sport-details {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.baseball-layout {
+  justify-content: flex-start;
+}
+
+.sport-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.sport-chip {
+  display: inline-block;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+/* ── Baseball diamond ── */
+.baseball-diamond {
+  flex-shrink: 0;
+}
+
+.bd-base {
+  width: 13px;
+  height: 13px;
+  background: #ddd;
+  border: 1.5px solid #aaa;
+  transform: rotate(45deg);
+  border-radius: 1px;
+}
+
+.bd-on { background: var(--gold); border-color: var(--gold-dark); }
+
+.bd-2b {
+  margin: 0 auto 3px auto;
+  display: block;
+}
+
+.bd-row-mid {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 46px;
+  margin-bottom: 3px;
+}
+
+.bd-gap { flex: 1; }
+
+.bd-hp {
+  margin: 0 auto;
+  display: block;
+  background: #999;
+  border-color: #777;
+}
+
+/* ── Card footer ── */
+.live-card-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.live-card-situation {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.live-card-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* ── Next game countdown block ── */
+.live-next-game {
+  max-width: 420px;
+  margin: 20px auto;
+  background: var(--surface);
+  border: 2px solid var(--maroon);
+  border-radius: 12px;
+  padding: 28px 32px;
+  text-align: center;
+}
+
+.live-next-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.live-next-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.live-next-sport {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.live-next-countdown {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--maroon);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+  margin-bottom: 14px;
+}
+
+.live-next-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* ── Inline countdown (in header) ── */
+.live-countdown {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #b71c1c;
+  font-variant-numeric: tabular-nums;
+  margin-left: 6px;
+}
+
+/* ── Tournament bracket section ── */
+.bracket-section { margin-bottom: 8px; }
+
+.bracket-section .live-section-header { color: #7a6000; border-bottom-color: var(--gold); }
+
+/* ── Live tab dot ── */
+.live-tab-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff4444;
+  margin-right: 4px;
+  vertical-align: middle;
+  animation: live-blink 1.1s ease-in-out infinite;
+}
+
+/* ── Pulsing dots ── */
+.live-dot-sm {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  animation: live-blink 1.1s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.live-dot-lg {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #b71c1c;
+  animation: live-blink 1.1s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+/* ── No-games message ── */
+.live-no-games-msg {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+/* ── Empty state ── */
+.live-empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+
+.live-empty-icon { font-size: 3rem; margin-bottom: 14px; }
+.live-empty-state h3 { font-size: 1.1rem; color: var(--text); margin-bottom: 8px; }
+.live-empty-state p  { font-size: 0.875rem; }
+
 /* ── Mobile layout ── */
 @media (max-width: 767px) {
   body {
@@ -692,8 +1107,19 @@ main {
   aside.open { display: flex; }
 
   #calendar-view { padding: 8px; }
-
   #list-view { padding: 12px 16px; }
-
+  #live-view { padding: 12px 16px; }
   #map-view { min-height: 400px; }
+
+  .live-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .live-next-game {
+    padding: 20px 16px;
+  }
+
+  .live-next-countdown {
+    font-size: 1.6rem;
+  }
 }

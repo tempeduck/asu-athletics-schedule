@@ -49,7 +49,7 @@ const adminLimit = rateLimit({
 // Static files — no rate limiting
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res, filePath) {
-    if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+    if (filePath.endsWith('.js') || filePath.endsWith('.css') || filePath.endsWith('.html')) {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     }
   },
@@ -97,9 +97,34 @@ app.post('/api/refresh', adminLimit, async (req, res) => {
 app.get('/api/live', liveLimit, async (req, res) => {
   try {
     const games = await fetchLiveGames();
-    res.json(games);
+    const nowTs = Math.floor(Date.now() / 1000);
+    const nextRow = queryEvents({ from: nowTs })[0] ?? null;
+    const nextGame = nextRow ? {
+      id: nextRow.id,
+      title: nextRow.title,
+      sport: nextRow.sport,
+      startTime: nextRow.start_date,
+      location: nextRow.location_name,
+      tvNetwork: nextRow.tv_network,
+      gameType: nextRow.game_type,
+      opponent_logo: nextRow.opponent_logo,
+    } : null;
+    res.json({ games, tournaments: [], nextGame });
   } catch (err) {
     console.error('[api] /api/live error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/bracket', liveLimit, async (req, res) => {
+  try {
+    const { sport, tournamentId } = req.query;
+    // FALLBACK: NCAA bracket — data.ncaa.com/casablanca/bracket/{sport}/d1/{year}/bracket.json
+    // Returns ASU's pod once the national bracket JSON is parsed for ASU's region.
+    // TODO: wire in NCAA bracket parsing to extract ASU's regional/sub-regional.
+    res.json({ rounds: [], source: 'not-implemented', sport, tournamentId });
+  } catch (err) {
+    console.error('[api] /api/bracket error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
