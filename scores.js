@@ -569,11 +569,14 @@ async function fetchLiveGames() {
       const state = comp.status?.type?.state;
       if (!state || !['in', 'pre', 'post'].includes(state)) continue;
 
-      // Only include today's games (Phoenix time) — ESPN scoreboard for off-season
-      // sports like football can return the entire upcoming season as 'pre' state.
+      // Include today's games (all states) and completed games within the past 24 hours.
+      // The 24h window keeps final scores visible after midnight without letting
+      // off-season scoreboards (e.g. football) flood the feed with upcoming games.
       const todayPhoenix = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Phoenix' });
       const gameDay = new Date(espnEvent.date).toLocaleDateString('en-CA', { timeZone: 'America/Phoenix' });
-      if (gameDay !== todayPhoenix) continue;
+      const isToday = gameDay === todayPhoenix;
+      const isRecentFinal = state === 'post' && (Date.now() - new Date(espnEvent.date).getTime()) < 24 * 60 * 60 * 1000;
+      if (!isToday && !isRecentFinal) continue;
 
       // Auto-update completed games in DB while we have the data
       if (state === 'post') {

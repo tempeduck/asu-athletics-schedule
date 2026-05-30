@@ -215,12 +215,13 @@ function cleanDisplayAddress(addr) {
 function formatTs(ts) {
   if (!ts) return '';
   const d = new Date(ts * 1000);
-  const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' });
-  // Midnight Phoenix = feed placeholder for "time unknown" — show date only
-  if (timeStr === '12:00 AM') {
-    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Phoenix' });
+  // Midnight Phoenix = feed placeholder for "time unknown" — show date only (no time).
+  // Keep the Phoenix check here since it's a feed artifact, not a display concern.
+  const phoenixTime = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' });
+  if (phoenixTime === '12:00 AM') {
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   }
-  return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' });
+  return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
 }
 
 function openEventModal(event) {

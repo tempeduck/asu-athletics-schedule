@@ -297,10 +297,10 @@ function renderUpcomingTournament(tournament) {
     const oppDisplay = (!g.oppName || VENUE_RE.test(g.oppName)) ? 'TBD' : shortOppName(g.oppName);
 
     const dateStr = g.startTime
-      ? new Date(g.startTime * 1000).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/Phoenix' })
+      ? new Date(g.startTime * 1000).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
       : '';
     const timeStr = g.startTime
-      ? new Date(g.startTime * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' }) + ' MST'
+      ? new Date(g.startTime * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
       : '';
 
     let resultChip = '';
@@ -662,7 +662,7 @@ function shortTitle(title) {
 function formatGameTime(ts) {
   if (!ts) return '';
   return new Date(ts * 1000).toLocaleTimeString('en-US', {
-    hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix',
+    hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
   });
 }
 
@@ -670,7 +670,7 @@ function formatGameDateTime(ts) {
   if (!ts) return '';
   return new Date(ts * 1000).toLocaleString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric',
-    hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix',
+    hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
   });
 }
 
