@@ -113,12 +113,18 @@ async function renderListView() {
       return;
     }
 
-    // Filter out events older than 7 days before today
-    const cutoff = new Date();
-    cutoff.setHours(0, 0, 0, 0);
-    cutoff.setDate(cutoff.getDate() - 7);
-    const cutoffTs = cutoff.getTime() / 1000;
-    const visibleEvents = events.filter(e => e.start_date >= cutoffTs);
+    // When a specific season is selected, show all events in that season.
+    // Otherwise limit to events from the last 7 days onwards.
+    let visibleEvents;
+    if (filters.season) {
+      visibleEvents = events;
+    } else {
+      const cutoff = new Date();
+      cutoff.setHours(0, 0, 0, 0);
+      cutoff.setDate(cutoff.getDate() - 7);
+      const cutoffTs = cutoff.getTime() / 1000;
+      visibleEvents = events.filter(e => e.start_date >= cutoffTs);
+    }
 
     if (visibleEvents.length === 0) {
       container.innerHTML = '<div class="empty-state"><h3>No events found</h3><p>Try adjusting your filters.</p></div>';
