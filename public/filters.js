@@ -40,6 +40,61 @@ function sportColor(sport) {
   return sportColorMap[sport];
 }
 
+// ── Logo / opponent identity helpers ─────────────────────────────────────────
+
+const UA_PATTERNS = [
+  /\bariz(?:ona)?\b/i,
+  /\bwildcat/i,
+  /\bua\b/i,
+  /university of arizona/i,
+];
+
+function isUA(title, opponentLogo) {
+  if (UA_PATTERNS.some(p => p.test(title || ''))) return true;
+  if (opponentLogo && /arizona/i.test(opponentLogo) && !/state/i.test(opponentLogo)) return true;
+  return false;
+}
+
+function opponentInitial(title) {
+  if (!title) return '?';
+  const cleaned = title
+    .replace(/^sun devil [^:]+:\s*/i, '')
+    .replace(/^arizona state\s+/i, '')
+    .replace(/^(vs\.?|at)\s+/i, '');
+  return cleaned.charAt(0).toUpperCase() || '?';
+}
+
+window.makeLogoPlaceholder = function(title, color) {
+  const el = document.createElement('div');
+  el.className = 'list-event-logo-placeholder';
+  el.style.borderColor = color + '20';
+  el.style.color = color;
+  el.textContent = opponentInitial(title);
+  return el;
+};
+
+function eventLogoHTML(event) {
+  const color = sportColor(event.sport);
+  if (isUA(event.title, event.opponent_logo)) {
+    return `<div class="list-event-logo-placeholder" title="University of Arizona"
+              style="font-size:1.4rem;background:none;border-color:transparent;">💩</div>`;
+  }
+  if (event.opponent_logo) {
+    const safeTitle = (event.title || '').replace(/'/g, "\\'");
+    return `<img class="list-event-logo" src="${event.opponent_logo}" alt="" loading="lazy"
+             onerror="this.replaceWith(makeLogoPlaceholder('${safeTitle}','${color}'))">`;
+  }
+  const initial = opponentInitial(event.title);
+  return `<div class="list-event-logo-placeholder"
+            style="border-color:${color}20;color:${color};">${initial}</div>`;
+}
+
+function resolveModalLogo(event) {
+  if (isUA(event.title, event.opponent_logo)) return { type: 'emoji', value: '💩' };
+  if (event.opponent_logo) return { type: 'img', value: event.opponent_logo };
+  return { type: 'img', value: '/sparky.png' };
+}
+
 function seasonLabel(val) {
   if (val === '2025')    return '2024–25';
   if (val === '2026')    return '2025–26';
@@ -85,9 +140,10 @@ async function loadFilterOptions() {
     const color = sportColor(sport);
     const id = `sport-${sport.replace(/\W/g, '_')}`;
     const label = document.createElement('label');
+    label.setAttribute('for', id);
     label.innerHTML = `
       <input type="checkbox" id="${id}" value="${sport}" onchange="toggleSport(this)" />
-      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></span>
+      <span class="sport-color-dot" style="background:${color};"></span>
       ${sport}
     `;
     list.appendChild(label);
@@ -169,6 +225,8 @@ function toggleRegion(select) {
 function toggleSport(checkbox) {
   if (checkbox.checked) filters.sports.add(checkbox.value);
   else filters.sports.delete(checkbox.value);
+  const label = checkbox.closest('label');
+  if (label) label.classList.toggle('sport-active', checkbox.checked);
   applyFilters();
 }
 
@@ -225,6 +283,7 @@ function clearFilters() {
   filters.to = '';
 
   document.querySelectorAll('#sport-list input[type=checkbox]').forEach(cb => cb.checked = false);
+  document.querySelectorAll('#sport-list label').forEach(l => l.classList.remove('sport-active'));
   document.querySelectorAll('.game-type-toggles button').forEach(b => b.classList.remove('active'));
   document.getElementById('filter-season').value = '';
   document.getElementById('filter-region').value = '';
@@ -569,12 +628,24 @@ function openEventModal(event) {
   document.getElementById('modal-title').textContent = shortTitle(event.title);
   document.getElementById('modal-sport').textContent = [event.sport, event.event_type].filter(Boolean).join(' · ');
 
-  const logo = document.getElementById('modal-logo');
-  if (event.opponent_logo) {
-    logo.src = event.opponent_logo;
-    logo.style.display = '';
+  const logoEl = document.getElementById('modal-logo');
+  const logoInfo = resolveModalLogo(event);
+
+  const prevEmoji = logoEl.parentElement.querySelector('.modal-logo-emoji');
+  if (prevEmoji) prevEmoji.remove();
+
+  if (logoInfo.type === 'emoji') {
+    logoEl.style.display = 'none';
+    const emojiEl = document.createElement('div');
+    emojiEl.className = 'modal-logo-emoji';
+    emojiEl.style.cssText = 'font-size:2.8rem;line-height:1;flex-shrink:0;padding:4px;';
+    emojiEl.title = 'University of Arizona';
+    emojiEl.textContent = logoInfo.value;
+    logoEl.parentElement.insertBefore(emojiEl, logoEl.nextSibling);
   } else {
-    logo.style.display = 'none';
+    logoEl.src = logoInfo.value;
+    logoEl.style.display = '';
+    logoEl.onerror = function() { this.style.display = 'none'; };
   }
 
   const body = document.getElementById('modal-body');
@@ -648,24 +719,21 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModalDi
 async function triggerRefresh() {
   const btn = document.getElementById('btn-refresh');
   btn.disabled = true;
-  btn.innerHTML = '<span class="btn-spinner"></span> Refreshing…';
+  btn.innerHTML = '<span class="btn-spinner"></span>';
   try {
     const res = await fetch('/api/refresh', { method: 'POST' });
     const data = await res.json();
     if (data.success) {
-      btn.innerHTML = '✓ Done';
       showToast(`Refreshed — ${data.count} events loaded`, 'success');
       window.reloadEvents && window.reloadEvents();
       loadFilterOptions();
     } else {
-      btn.innerHTML = 'Error';
       showToast('Refresh failed. Try again.', 'error');
     }
   } catch {
-    btn.innerHTML = 'Error';
     showToast('Network error during refresh.', 'error');
   }
-  setTimeout(() => { btn.disabled = false; btn.innerHTML = 'Refresh'; }, 3000);
+  setTimeout(() => { btn.disabled = false; btn.innerHTML = '↻'; }, 3000);
 }
 
 // ── Filters toggle (mobile) ────────────────────────────

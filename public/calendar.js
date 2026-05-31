@@ -195,35 +195,53 @@ async function renderListView() {
 function listEventHTML(e) {
   const color = sportColor(e.sport);
   const rawTime = e.start_date
-    ? new Date(e.start_date * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' })
+    ? new Date(e.start_date * 1000).toLocaleTimeString('en-US',
+        { hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' })
     : '';
-  // Suppress midnight — it's the feed's "no time set" placeholder
   const time = rawTime === '12:00 AM' ? '' : rawTime;
 
-  const metaParts = [e.sport, e.city ? `${e.city}, ${e.state || ''}`.trim().replace(/,$/, '') : null].filter(Boolean);
-  const badges = e.badges ? e.badges.split('|').filter(Boolean).map(b => `<span class="badge">${b.trim()}</span>`).join('') : '';
+  const metaParts = [
+    e.location_name || (e.city ? `${e.city}, ${e.state || ''}`.trim().replace(/,$/, '') : null)
+  ].filter(Boolean);
+  const badges = e.badges
+    ? e.badges.split('|').filter(Boolean).map(b => `<span class="badge">${b.trim()}</span>`).join('')
+    : '';
 
   const scoreClass = e.result === 'W' ? 'score-w' : e.result === 'L' ? 'score-l' : 'score-t';
   const scoreHTML = e.result
-    ? `<span class="score-badge ${scoreClass}">${e.result} ${e.asu_score}-${e.opp_score}</span>`
+    ? `<span class="score-badge ${scoreClass}">${e.result} ${e.asu_score}–${e.opp_score}</span>`
     : '';
 
+  const logoHTML = typeof eventLogoHTML === 'function' ? eventLogoHTML(e) : '';
+
   return `
-    <span class="list-event-dot" style="background:${color}"></span>
+    <div class="list-event-bar" style="background:${color}"></div>
+    ${logoHTML}
     <div class="list-event-main">
       <div class="list-event-title">${shortTitle(e.title)}${badges}</div>
-      <div class="list-event-meta">${metaParts.join(' · ')}</div>
+      <div class="list-event-meta">${
+        e.sport
+          ? `<span style="font-weight:600;color:${color}">${e.sport}</span>`
+          : ''
+      }${metaParts.length ? (e.sport ? ' · ' : '') + metaParts.join(' · ') : ''}</div>
     </div>
     <div class="list-event-right">
-      ${scoreHTML || `<div class="list-event-time">${time}</div>`}
-      <div class="list-event-type">${capitalize(e.game_type || '')}${e.tv_network ? ' · ' + e.tv_network : ''}</div>
+      <div class="list-event-time">${time}</div>
+      ${scoreHTML ? `<div>${scoreHTML}</div>` : ''}
+      <div class="list-event-type">${capitalize(e.game_type || '')}${
+        e.tv_network ? ' · ' + e.tv_network : ''
+      }</div>
     </div>
   `;
 }
 
 function updateStatus(count) {
-  document.getElementById('status-bar').textContent =
-    `${count} event${count !== 1 ? 's' : ''} shown · Last updated: ${new Date().toLocaleTimeString()}`;
+  if (window.__statusFirstLoad !== true) {
+    window.__statusFirstLoad = true;
+    if (typeof showToast === 'function') {
+      showToast(`${count} event${count !== 1 ? 's' : ''} loaded`, 'success', 2500);
+    }
+  }
 }
 
 window.renderListView = renderListView;
