@@ -275,7 +275,7 @@ function renderGameCard(game) {
   const tvBadge = game.tvNetwork
     ? `<span class="live-card-tv">${esc(game.tvNetwork)}</span>` : '';
 
-  const asuLogoSvg = `<div class="live-card-asu-badge">ASU</div>`;
+  const asuLogoSvg = `<div class="live-card-asu-badge"><img src="/sparky.png" alt="ASU" style="width:32px;height:32px;object-fit:contain;" onerror="this.parentElement.textContent='🔱'"></div>`;
   const oppLogoEl  = game.oppLogo
     ? `<img class="live-card-logo" src="${esc(game.oppLogo)}" alt="${esc(game.oppName)}" loading="lazy" />`
     : `<div class="live-card-logo-placeholder">${esc((game.oppAbbr || game.oppName).slice(0,3).toUpperCase())}</div>`;

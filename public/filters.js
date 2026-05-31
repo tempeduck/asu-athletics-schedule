@@ -42,16 +42,29 @@ function sportColor(sport) {
 
 // ── Logo / opponent identity helpers ─────────────────────────────────────────
 
-const UA_PATTERNS = [
-  /\bariz(?:ona)?\b/i,
-  /\bwildcat/i,
-  /\bua\b/i,
-  /university of arizona/i,
+// Matches ONLY University of Arizona — NOT Arizona State, Arizona St., etc.
+const UA_EXACT_PATTERNS = [
+  /\buniversity\s+of\s+arizona\b/i,
+  /\barizona\s+wildcats?\b/i,
+  /\bwildcats?\b.*\bariz/i,
+  // Standalone "Arizona" only when NOT followed by "State" or "St"
+  /\barizona\b(?!\s+st(?:ate|\.)?)/i,
 ];
 
 function isUA(title, opponentLogo) {
-  if (UA_PATTERNS.some(p => p.test(title || ''))) return true;
-  if (opponentLogo && /arizona/i.test(opponentLogo) && !/state/i.test(opponentLogo)) return true;
+  const t = (title || '')
+    .replace(/^(at|vs\.?)\s+/i, '');
+
+  const isAsuTitle =
+    /arizona\s+st(?:ate|\.)?/i.test(t) ||
+    /\basu\b/i.test(t) ||
+    /sun\s+devil/i.test(t);
+
+  if (!isAsuTitle && UA_EXACT_PATTERNS.some(p => p.test(t))) return true;
+
+  // ESPN logo URL contains "arizona-wildcats" (not "state")
+  if (opponentLogo && /arizona-wildcat/i.test(opponentLogo)) return true;
+
   return false;
 }
 
@@ -84,9 +97,7 @@ function eventLogoHTML(event) {
     return `<img class="list-event-logo" src="${event.opponent_logo}" alt="" loading="lazy"
              onerror="this.replaceWith(makeLogoPlaceholder('${safeTitle}','${color}'))">`;
   }
-  const initial = opponentInitial(event.title);
-  return `<div class="list-event-logo-placeholder"
-            style="border-color:${color}20;color:${color};">${initial}</div>`;
+  return `🔱`;
 }
 
 function resolveModalLogo(event) {
