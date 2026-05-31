@@ -61,6 +61,77 @@ function isUA(title, opponentLogo) {
   return false;
 }
 
+// ESPN CDN logo lookup: opponent name → ESPN team ID
+// URL pattern: https://a.espncdn.com/i/teamlogos/ncaa/500/{id}.png
+const ESPN_LOGO_MAP = {
+  // Big 12
+  'arizona wildcats': 12, 'utah utes': 254, 'byu cougars': 252, 'byu': 252,
+  'oklahoma sooners': 201, 'oklahoma state cowboys': 197, 'oklahoma state cowgirls': 197,
+  'oklahoma st.': 197, 'kansas state wildcats': 2306, 'kansas st.': 2306,
+  'kansas jayhawks': 2305, 'kansas': 2305, 'west virginia mountaineers': 277,
+  'texas tech red raiders': 2641, 'tcu horned frogs': 2628,
+  'baylor bears': 239, 'baylor': 239, 'houston cougars': 248, 'houston': 248,
+  'ucf knights': 2116, 'ucf': 2116, 'cincinnati bearcats': 2132, 'cincinnati': 2132,
+  'iowa state cyclones': 66, 'colorado buffaloes': 38, 'colorado': 38,
+  // Other major conferences
+  'stanford cardinal': 24, 'stanford': 24, 'utah': 254, 'cal': 25,
+  'california golden bears': 25, 'north carolina tar heels': 153, 'nc state wolfpack': 152,
+  'tennessee volunteers': 2633, 'tennessee': 2633, 'texas a&m aggies': 245, 'texas a&m': 245,
+  'mississippi state bulldogs': 344, 'ole miss rebels': 145, 'ole miss': 145,
+  'michigan wolverines': 130, 'michigan': 130, 'wisconsin badgers': 275,
+  'indiana hoosiers': 84, 'northwestern wildcats': 77, 'northwestern': 77,
+  // Mountain West / WAC
+  'unlv rebels': 2439, 'unlv': 2439, 'san diego state aztecs': 21,
+  'nevada wolf pack': 2440, 'nevada': 2440, 'air force falcons': 2005, 'air force': 2005,
+  'new mexico state aggies': 166, 'new mexico st.': 166, 'utep miners': 2638,
+  // Big Sky / Summit / other D1
+  'grand canyon lopes': 2253, 'grand canyon': 2253, 'omaha mavericks': 2437, 'omaha': 2437,
+  'south dakota state jackrabbits': 2571, 'south dakota state': 2571, 'south dakota st.': 2571,
+  'north dakota fighting hawks': 2446, 'north dakota': 2446,
+  'st. cloud state huskies': 720, 'denver pioneers': 2172, 'denver': 2172,
+  'colorado college tigers': 2098, 'colorado college': 2098,
+  'uconn huskies': 41, 'uconn': 41, "st. john's red storm": 2599, "st. john's": 2599,
+  'loyola marymount lions': 2350, 'loyola marymount': 2350, 'lmu': 2350,
+  'memphis tigers': 235, 'memphis': 235, 'miami (oh) redhawks': 193, 'miami oh': 193,
+  'western michigan broncos': 2711, 'western michigan': 2711,
+  'toledo rockets': 2649, 'toledo': 2649, 'buffalo bulls': 2084, 'buffalo': 2084,
+  'texas state bobcats': 326, 'texas state': 326,
+  'cal baptist': 2856, 'california baptist lancers': 2856,
+  'uc riverside highlanders': 2427, 'uc riverside': 2427,
+  'eastern illinois panthers': 2178, 'eastern illinois': 2178,
+  'southern utah thunderbirds': 2561, 'southern utah': 2561,
+  'portland state vikings': 304, 'portland state': 304,
+  'grambling state': 2755, 'grambling': 2755,
+  'pacific tigers': 279, 'pacific': 279,
+  'colgate raiders': 2111, 'colgate': 2111,
+  'dartmouth big green': 2155, 'dartmouth': 2155,
+  'princeton tigers': 163, 'princeton': 163,
+  'marist red foxes': 2373, 'marist': 2373,
+  'nebraska cornhuskers': 158, 'nebraska': 158,
+  'texas longhorns': 251, 'texas': 251,
+  'lsu tigers': 99, 'lsu': 99,
+  'minnesota golden gophers': 135, 'minnesota': 135,
+  'oklahoma state': 197,
+};
+
+function espnLogoUrl(title) {
+  const vsMatch = (title || '').match(/\b(?:at|vs\.?)\s+(.+)$/i);
+  if (!vsMatch) return null;
+  const raw = vsMatch[1].replace(/^sun devil [^:]+:\s*/i, '').trim();
+  const norm = raw.toLowerCase().replace(/\s+/g, ' ').trim();
+  if (ESPN_LOGO_MAP[norm] != null) {
+    return `https://a.espncdn.com/i/teamlogos/ncaa/500/${ESPN_LOGO_MAP[norm]}.png`;
+  }
+  const words = norm.split(' ');
+  for (let i = words.length - 1; i >= 1; i--) {
+    const shorter = words.slice(0, i).join(' ');
+    if (ESPN_LOGO_MAP[shorter] != null) {
+      return `https://a.espncdn.com/i/teamlogos/ncaa/500/${ESPN_LOGO_MAP[shorter]}.png`;
+    }
+  }
+  return null;
+}
+
 function opponentInitial(title) {
   if (!title) return '?';
   const cleaned = title
@@ -81,16 +152,32 @@ window.makeLogoPlaceholder = function(title, color) {
 
 function eventLogoHTML(event) {
   const color = sportColor(event.sport);
+
+  // 1. UA → poop emoji
   if (isUA(event.title, event.opponent_logo)) {
     return `<div class="list-event-logo-placeholder" title="University of Arizona"
               style="font-size:1.4rem;background:none;border-color:transparent;">💩</div>`;
   }
+
+  // 2. Feed-provided logo
   if (event.opponent_logo) {
     const safeTitle = (event.title || '').replace(/'/g, "\\'");
     return `<img class="list-event-logo" src="${event.opponent_logo}" alt="" loading="lazy"
              onerror="this.replaceWith(makeLogoPlaceholder('${safeTitle}','${color}'))">`;
   }
-  return `🔱`;
+
+  // 3. ESPN CDN fallback by name
+  const espnUrl = espnLogoUrl(event.title);
+  if (espnUrl) {
+    const safeTitle = (event.title || '').replace(/'/g, "\\'");
+    return `<img class="list-event-logo" src="${espnUrl}" alt="" loading="lazy"
+             onerror="this.replaceWith(makeLogoPlaceholder('${safeTitle}','${color}'))">`;
+  }
+
+  // 4. Colored initial (Sparky is for ASU context only — see resolveModalLogo)
+  const initial = opponentInitial(event.title);
+  return `<div class="list-event-logo-placeholder"
+            style="border-color:${color}20;color:${color};">${initial}</div>`;
 }
 
 function resolveModalLogo(event) {
