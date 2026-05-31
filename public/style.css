@@ -2061,3 +2061,45 @@ main {
   font-family: inherit;
 }
 .notify-btn:hover { opacity: 0.85; }
+
+/* ── Date range collapse ── */
+.filter-collapse-toggle {
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: 4px 0 6px;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: inherit;
+}
+.filter-collapse-toggle:hover { color: var(--text); }
+.collapse-arrow { font-size: 0.6rem; transition: transform 0.15s; }
+.filter-collapse-body { padding-top: 4px; display: flex; flex-direction: column; gap: 4px; }
+
+/* ── Subscribe button ── */
+.btn-subscribe {
+  background: var(--gold);
+  color: #1a1a1a;
+  border: none;
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.btn-subscribe:hover { opacity: 0.85; }
+@media (max-width: 768px) {
+  .btn-subscribe .sub-label { display: none; }
+}

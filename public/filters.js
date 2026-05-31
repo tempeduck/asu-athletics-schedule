@@ -124,6 +124,12 @@ async function loadFilterOptions() {
     seasonSelect.value = defaultSeason;
     applySeason(defaultSeason);
   }
+
+  // Restore date range open/closed state
+  if (localStorage.getItem('asu-date-range-open') === '1') {
+    document.getElementById('date-range-body').style.display = 'block';
+    document.getElementById('date-range-arrow').textContent = '▼';
+  }
 }
 
 function rebuildStateDropdown(region) {
@@ -191,6 +197,24 @@ function applyFilters() {
   window.reloadEvents && window.reloadEvents();
 }
 
+function toggleDateRange() {
+  const body  = document.getElementById('date-range-body');
+  const arrow = document.getElementById('date-range-arrow');
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  arrow.textContent = isOpen ? '▶' : '▼';
+  try { localStorage.setItem('asu-date-range-open', isOpen ? '0' : '1'); } catch {}
+}
+
+function copyIcsUrl() {
+  const url = `${window.location.origin}/api/events.ics`;
+  navigator.clipboard.writeText(url).then(() => {
+    showToast('Calendar URL copied — paste into Apple Calendar or Google Calendar to subscribe', 'success', 5000);
+  }).catch(() => {
+    window.open(url, '_blank');
+  });
+}
+
 function clearFilters() {
   filters.sports.clear();
   filters.gameTypes.clear();
@@ -206,6 +230,9 @@ function clearFilters() {
   document.getElementById('filter-region').value = '';
   document.getElementById('filter-from').value = '';
   document.getElementById('filter-to').value = '';
+  document.getElementById('date-range-body').style.display = 'none';
+  document.getElementById('date-range-arrow').textContent = '▶';
+  try { localStorage.removeItem('asu-date-range-open'); } catch {}
   rebuildStateDropdown('');
 
   window.reloadEvents && window.reloadEvents();

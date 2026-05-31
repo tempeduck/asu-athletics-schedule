@@ -34,6 +34,9 @@
         <button id="btn-map-view" onclick="setView('map')">Map</button>
       </div>
       <button class="btn-filters-toggle" id="btn-filters" onclick="toggleFilters()">Filters</button>
+      <button class="btn-subscribe" onclick="copyIcsUrl()" title="Subscribe to schedule in Apple/Google Calendar">
+        📅 <span class="sub-label">Subscribe</span>
+      </button>
       <button class="btn-refresh" id="btn-refresh" onclick="triggerRefresh()">Refresh</button>
     </div>
   </div>
@@ -74,14 +77,16 @@
       </select>
     </div>
 
-    <div class="filter-group">
-      <label class="group-label">Date From</label>
-      <input type="date" id="filter-from" onchange="applyFilters()" />
-    </div>
-
-    <div class="filter-group">
-      <label class="group-label">Date To</label>
-      <input type="date" id="filter-to" onchange="applyFilters()" />
+    <div class="filter-group filter-group-collapsible" id="date-range-group">
+      <button class="filter-collapse-toggle" onclick="toggleDateRange()" id="date-range-toggle">
+        Date Range <span class="collapse-arrow" id="date-range-arrow">▶</span>
+      </button>
+      <div class="filter-collapse-body" id="date-range-body" style="display:none">
+        <label class="group-label" style="margin-top:8px">From</label>
+        <input type="date" id="filter-from" onchange="applyFilters()" />
+        <label class="group-label" style="margin-top:8px">To</label>
+        <input type="date" id="filter-to" onchange="applyFilters()" />
+      </div>
     </div>
 
     <button class="btn-clear-filters" onclick="clearFilters()">Clear All Filters</button>
@@ -123,7 +128,7 @@
   </div>
 </div>
 
-<script src="filters.js?v=11"></script>
+<script src="filters.js?v=12"></script>
 <script src="calendar.js?v=8"></script>
 <script src="map.js?v=2"></script>
 <script src="live.js?v=19"></script>
