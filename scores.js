@@ -105,7 +105,15 @@ function findDBMatch(scoreData, dbEvents, espnDate) {
     const dbOpp = opponentFromTitle(db.title || '');
     return opponentMatches(dbOpp, scoreData.espnOppDisplay, scoreData.espnOppAbbr);
   });
-  return withOpp.length === 1 ? withOpp[0] : null;
+  if (withOpp.length === 1) return withOpp[0];
+
+  // Fallback: match by espn_{id} record created from a previous scoreboard sync
+  if (scoreData.espnEventId) {
+    const byEspnId = dbEvents.find(db => db.id === `espn_${scoreData.espnEventId}`);
+    if (byEspnId) return byEspnId;
+  }
+
+  return null;
 }
 
 function buildESPNEvent(espnEvent, sport, scoreData) {
@@ -602,6 +610,7 @@ async function fetchLiveGames() {
       const matchKey = {
         espnOppDisplay: oppName.toLowerCase(),
         espnOppAbbr: oppAbbr.toLowerCase(),
+        espnEventId: espnEvent.id,
       };
       const dbMatch = findDBMatch(matchKey, dbEvents, new Date(espnEvent.date));
 

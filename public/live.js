@@ -373,9 +373,12 @@ function renderNcaaBracketShell(tournament) {
 function _setBracketHtml(el, html) {
   if (!el) return;
   el.innerHTML = html;
-  // Always start at the left edge — browser may auto-scroll to a focused/highlighted element
+  // Always start at the left edge — browser may auto-scroll to a highlighted element
   const rounds = el.querySelector('.ncaa-bracket-rounds');
   if (rounds) rounds.scrollLeft = 0;
+  // Attach click handler directly so iOS Safari overflow:auto containers
+  // don't swallow events before they reach the #live-view delegated listener
+  el.addEventListener('click', _handleCardClick);
 }
 
 async function _loadNcaaBracket(sport) {
@@ -552,7 +555,7 @@ function _ncaaFormatDate(dateStr) {
   try {
     const [m, d, y] = dateStr.split('/');
     return new Date(parseInt(y), parseInt(m) - 1, parseInt(d))
-      .toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      .toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/Phoenix' });
   } catch {
     return dateStr;
   }
@@ -567,10 +570,10 @@ function renderUpcomingTournament(tournament) {
     const oppDisplay = (!g.oppName || VENUE_RE.test(g.oppName)) ? 'TBD' : shortOppName(g.oppName);
 
     const dateStr = g.startTime
-      ? new Date(g.startTime * 1000).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      ? new Date(g.startTime * 1000).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/Phoenix' })
       : '';
     const timeStr = g.startTime
-      ? new Date(g.startTime * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
+      ? new Date(g.startTime * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix', timeZoneName: 'short' })
       : '';
 
     let resultChip = '';
@@ -932,7 +935,7 @@ function shortTitle(title) {
 function formatGameTime(ts) {
   if (!ts) return '';
   return new Date(ts * 1000).toLocaleTimeString('en-US', {
-    hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+    hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix', timeZoneName: 'short',
   });
 }
 
@@ -940,7 +943,7 @@ function formatGameDateTime(ts) {
   if (!ts) return '';
   return new Date(ts * 1000).toLocaleString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric',
-    hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+    hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix', timeZoneName: 'short',
   });
 }
 

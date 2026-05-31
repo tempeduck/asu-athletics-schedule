@@ -219,9 +219,9 @@ function formatTs(ts) {
   // Keep the Phoenix check here since it's a feed artifact, not a display concern.
   const phoenixTime = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' });
   if (phoenixTime === '12:00 AM') {
-    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Phoenix' });
   }
-  return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+  return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix', timeZoneName: 'short' });
 }
 
 // ── Game Detail Modal (box score) ─────────────────────────────────────────────
@@ -647,7 +647,7 @@ function setView(view) {
 
 // Init — wait for all scripts to parse before calling setView/renderLiveView.
 document.addEventListener('DOMContentLoaded', () => {
-  const savedView = localStorage.getItem('asu-cal-view') || 'calendar';
+  const savedView = localStorage.getItem('asu-cal-view') || 'live';
   setView(savedView);
   loadFilterOptions();
 });
@@ -655,7 +655,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Restore correct tab and restart polling after iOS Safari bfcache restore.
 window.addEventListener('pageshow', (e) => {
   if (e.persisted) {
-    const v = localStorage.getItem('asu-cal-view') || 'calendar';
+    const v = localStorage.getItem('asu-cal-view') || 'live';
     setView(v);
     window.startLivePolling && window.startLivePolling();
   }
