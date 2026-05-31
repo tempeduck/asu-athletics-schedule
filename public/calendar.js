@@ -146,7 +146,19 @@ async function renderListView() {
         el.className = 'list-event';
         el.dataset.eventId = e.id;
         el.innerHTML = listEventHTML(e);
-        el.addEventListener('click', () => openEventModal(e));
+        el.addEventListener('click', () => {
+          const liveGame = window.__liveData?.[e.id];
+          if (liveGame?.espnEventId && window.openGameDetailModal) {
+            window.openGameDetailModal(liveGame.espnEventId, e.sport, {
+              title: e.title, sport: e.sport,
+              startTime: e.start_date,
+              location: e.location_name || [e.city, e.state].filter(Boolean).join(', ') || null,
+              tvNetwork: e.tv_network || null,
+            });
+          } else {
+            openEventModal(e);
+          }
+        });
         group.appendChild(el);
       }
 

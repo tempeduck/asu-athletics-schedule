@@ -114,10 +114,18 @@
   </div>
 </div>
 
-<script src="filters.js?v=8"></script>
-<script src="calendar.js?v=7"></script>
+<!-- Game detail modal (live box score) -->
+<div class="game-modal-overlay" id="game-modal-overlay">
+  <div class="game-modal" id="game-modal">
+    <button class="game-modal-close" onclick="window.closeGameModal && closeGameModal()">✕</button>
+    <div id="game-modal-inner"><div class="game-modal-spinner"></div></div>
+  </div>
+</div>
+
+<script src="filters.js?v=9"></script>
+<script src="calendar.js?v=8"></script>
 <script src="map.js?v=2"></script>
-<script src="live.js?v=12"></script>
+<script src="live.js?v=13"></script>
 <script src="feedback.js" defer></script>
 
 </body>

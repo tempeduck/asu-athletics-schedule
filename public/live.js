@@ -6,6 +6,10 @@ let _pollTimer = null;
 let _countdownTimer = null;
 let _lastData = null;     // cached response for re-renders when switching tabs
 
+// NCAA bracket client-side cache (avoids flicker on 30-second poll re-renders)
+let _ncaaBracketHtml     = null;
+let _ncaaBracketLoadedAt = 0;
+
 // ── Main polling ──────────────────────────────────────────────────────────────
 
 async function pollLive() {
@@ -115,6 +119,19 @@ function _renderLiveView(games, tournaments, nextGame) {
   }
 
   container.innerHTML = html;
+
+  // Set up delegated click handler for game cards (add once; survives innerHTML resets)
+  if (!container._hasCardClicks) {
+    container._hasCardClicks = true;
+    container.addEventListener('click', _handleCardClick);
+  }
+
+  // Async-load NCAA bracket into any placeholder that was rendered
+  const bracketPlaceholder = container.querySelector('#ncaa-bracket-placeholder');
+  if (bracketPlaceholder) {
+    _loadNcaaBracket(bracketPlaceholder.dataset.sport || 'Baseball').catch(() => {});
+  }
+
   // Start countdown after DOM insert
   if (upcomingGames.length > 0 && liveGames.length === 0) {
     const soonest = upcomingGames.reduce((a, b) => a.startTime < b.startTime ? a : b);
@@ -125,6 +142,21 @@ function _renderLiveView(games, tournaments, nextGame) {
   }
 }
 
+function _handleCardClick(e) {
+  const card = e.target.closest('[data-espn-id]');
+  if (!card) return;
+  const espnId = card.dataset.espnId;
+  const sport  = card.dataset.sport || '';
+  if (!espnId || !window.openGameDetailModal) return;
+  window.openGameDetailModal(espnId, sport, {
+    title:     card.dataset.title || '',
+    sport,
+    startTime: card.dataset.startTime ? parseInt(card.dataset.startTime, 10) : null,
+    location:  card.dataset.location || null,
+    tvNetwork: card.dataset.tv || null,
+  });
+}
+
 function sectionHeader(innerHTML, pulse) {
   return `<div class="live-section-header${pulse ? ' live-section-live' : ''}">${innerHTML}</div>`;
 }
@@ -132,7 +164,11 @@ function sectionHeader(innerHTML, pulse) {
 // ── Game card ─────────────────────────────────────────────────────────────────
 
 function renderGameCard(game) {
-  const stateClass = game.state === 'live' ? 'card-live' : game.state === 'upcoming' ? 'card-upcoming' : 'card-final';
+  const stateClass    = game.state === 'live' ? 'card-live' : game.state === 'upcoming' ? 'card-upcoming' : 'card-final';
+  const clickableClass = game.espnEventId ? ' card-clickable' : '';
+  const espnAttrs = game.espnEventId
+    ? `data-espn-id="${esc(game.espnEventId)}" data-sport="${esc(game.sport || '')}" data-title="${esc(game.title || '')}" data-start-time="${game.startTime || ''}" data-location="${esc(game.location || (game.city ? [game.city, game.stateAbbr].filter(Boolean).join(', ') : '') || '')}" data-tv="${esc(game.tvNetwork || '')}"`
+    : '';
 
   const statusBadge = game.state === 'live'
     ? `<span class="live-status-badge live-status-live"><span class="live-dot-sm"></span>LIVE</span>`
@@ -169,7 +205,7 @@ function renderGameCard(game) {
     ? `<div class="live-card-meta">📍 ${esc(locationParts[0])}</div>` : '';
 
   return `
-    <div class="live-card ${stateClass}" data-event-id="${esc(game.dbEventId || '')}">
+    <div class="live-card ${stateClass}${clickableClass}" data-event-id="${esc(game.dbEventId || '')}" ${espnAttrs}>
       <div class="live-card-header">
         <span class="live-card-sport">${esc(game.sport)}</span>
         ${statusBadge}
@@ -280,12 +316,215 @@ function chipRow(chips) {
 function renderTournaments(tournaments) {
   if (!tournaments || !tournaments.length) return '';
   return tournaments.map(t => {
+    if (t.format === 'bracket' && t.sport === 'Baseball') return renderNcaaBracketShell(t);
     if (!t.bracketReady) return renderUpcomingTournament(t);
     if (t.format === 'pool') return renderPoolStandings(t);
     if (t.format === 'series') return renderSeriesPanel(t);
     if (t.format === 'bracket' && t.rounds && t.rounds.length) return renderBracket(t);
     return renderUpcomingTournament(t);
   }).join('');
+}
+
+// ── NCAA Regional Bracket ─────────────────────────────────────────────────────
+
+function renderNcaaBracketShell(tournament) {
+  const colId = `ncaa-bracket-col-${(tournament.id || '').replace(/[^a-z0-9]/gi, '-')}`;
+  // Show stale bracket instantly if we have it, else show loading
+  const bodyContent = _ncaaBracketHtml
+    ? _ncaaBracketHtml
+    : '<div class="ncaa-bracket-loading">Loading bracket…</div>';
+
+  return `
+    <div class="bracket-wrapper">
+      <div class="live-section-header bracket-collapsible-header" onclick="toggleBracketBody(this)">
+        🏆 ${esc(tournament.name)} <span class="bracket-collapse-btn">▾</span>
+      </div>
+      <div class="bracket-body" id="${esc(colId)}">
+        <div id="ncaa-bracket-placeholder" data-col-id="${esc(colId)}" data-sport="${esc(tournament.sport || 'Baseball')}">${bodyContent}</div>
+      </div>
+    </div>`;
+}
+
+async function _loadNcaaBracket(sport) {
+  const placeholder = document.getElementById('ncaa-bracket-placeholder');
+  if (!placeholder) return;
+
+  // If cache is fresh (< 30s), just use it — no fetch needed
+  if (_ncaaBracketHtml && Date.now() - _ncaaBracketLoadedAt < 30_000) {
+    placeholder.innerHTML = _ncaaBracketHtml;
+    return;
+  }
+
+  // Show stale data immediately while fetching
+  if (_ncaaBracketHtml) placeholder.innerHTML = _ncaaBracketHtml;
+
+  try {
+    const secRes = await fetch('/api/ncaa/asu-section');
+    if (!secRes.ok) throw new Error('section fetch failed');
+    const { sectionId } = await secRes.json();
+
+    const bRes = await fetch(`/api/ncaa/bracket/${sectionId}`);
+    if (!bRes.ok) throw new Error('bracket fetch failed');
+    const games = await bRes.json();
+    if (!Array.isArray(games) || !games.length) throw new Error('empty bracket');
+
+    _ncaaBracketHtml     = _buildNcaaBracketHtml(games);
+    _ncaaBracketLoadedAt = Date.now();
+
+    // Re-find placeholder (may have been replaced by a poll re-render)
+    const el = document.getElementById('ncaa-bracket-placeholder');
+    if (el) el.innerHTML = _ncaaBracketHtml;
+  } catch (err) {
+    console.warn('[live] NCAA bracket fetch failed:', err.message);
+    const el = document.getElementById('ncaa-bracket-placeholder');
+    if (el && !_ncaaBracketHtml) {
+      el.innerHTML = '<div class="tourn-note">🏆 Tournament in progress · Live bracket updates when games start</div>';
+    }
+  }
+}
+
+function _buildNcaaBracketHtml(games) {
+  const cols = _bracketColumns(games);
+  const COL_LABELS = ['Winners R1', 'Losers R1', 'Winners Final', 'Losers R2', 'Regional Final'];
+
+  const colsHtml = cols.map((colGames, i) => {
+    if (!colGames.length) return '';
+    const gamesHtml = colGames.map(_renderNcaaGameCard).join('');
+    return `<div class="ncaa-bracket-col">
+      <div class="ncaa-bracket-col-label">${esc(COL_LABELS[i] || `Round ${i + 1}`)}</div>
+      <div class="ncaa-bracket-games">${gamesHtml}</div>
+    </div>`;
+  }).join('');
+
+  return `<div class="ncaa-bracket-rounds">${colsHtml}</div>`;
+}
+
+function _bracketColumns(games) {
+  const byId = new Map(games.map(g => [g.bracketId, g]));
+
+  // incoming[targetId] = [{fromId, type}]
+  const incoming = new Map();
+  for (const g of games) {
+    for (const [type, tid] of [['victor', g.victorBracketPositionId], ['loser', g.loserBracketPositionId]]) {
+      if (!tid || !byId.has(tid)) continue;
+      if (!incoming.has(tid)) incoming.set(tid, []);
+      incoming.get(tid).push({ fromId: g.bracketId, type });
+    }
+  }
+
+  // Memoised depth (longest predecessor chain)
+  const depthMemo = new Map();
+  function getDepth(id, seen) {
+    if (depthMemo.has(id)) return depthMemo.get(id);
+    if (seen.has(id)) return 0;
+    seen.add(id);
+    const preds = incoming.get(id) || [];
+    const d = preds.length === 0 ? 0 : 1 + Math.max(...preds.map(p => getDepth(p.fromId, new Set(seen))));
+    depthMemo.set(id, d);
+    return d;
+  }
+  for (const g of games) getDepth(g.bracketId, new Set());
+
+  const hasLoserInput = id => (incoming.get(id) || []).some(e => e.type === 'loser');
+
+  // Column assignment:
+  // depth 0                   → col 0 (Winners R1)
+  // depth 1 + loser input     → col 1 (Losers R1)
+  // depth 1 + all victor      → col 2 (Winners Final)
+  // depth 2                   → col 3 (Losers R2)
+  // depth >= 3                → col 4 (Regional Final incl. if-necessary)
+  const cols = [[], [], [], [], []];
+  for (const g of games) {
+    const d   = depthMemo.get(g.bracketId) ?? 0;
+    let col;
+    if (d === 0)     col = 0;
+    else if (d === 1) col = hasLoserInput(g.bracketId) ? 1 : 2;
+    else if (d === 2) col = 3;
+    else              col = 4;
+    cols[col].push(g);
+  }
+  return cols;
+}
+
+function _renderNcaaGameCard(game) {
+  const isLive  = game.gameState === 'I';
+  const isFinal = game.gameState === 'F';
+  const canClick = !!game.espnEventId && (isLive || isFinal);
+
+  const cardClass = ['ncaa-game-card', isLive ? 'ncaa-live' : '', canClick ? 'ncaa-clickable' : ''].filter(Boolean).join(' ');
+  const espnAttrs = canClick
+    ? `data-espn-id="${esc(game.espnEventId)}" data-sport="Baseball"`
+    : '';
+
+  // Card header content
+  let headerHtml = '';
+  if (isLive) {
+    headerHtml = `<span class="ncaa-live-badge">LIVE</span> ${esc(game.currentPeriod || '')}`;
+  } else if (isFinal) {
+    headerHtml = `<span class="ncaa-final-badge">Final</span>`;
+  } else {
+    const parts = [];
+    if (game.startDate) parts.push(_ncaaFormatDate(game.startDate));
+    if (game.broadcaster?.name) parts.push(esc(game.broadcaster.name));
+    headerHtml = parts.join(' · ');
+  }
+
+  const teams = game.teams || [];
+  const row1  = _renderNcaaTeamRow(teams[0] || null, isFinal, isLive);
+  const row2  = _renderNcaaTeamRow(teams[1] || null, isFinal, isLive);
+
+  return `<div class="${cardClass}" ${espnAttrs}>
+    <div class="ncaa-card-header">${headerHtml}</div>
+    ${row1}${row2}
+  </div>`;
+}
+
+function _renderNcaaTeamRow(team, isFinal, isLive) {
+  if (!team) return `<div class="ncaa-team-row"><span class="ncaa-team-name" style="color:var(--text-muted)">TBD</span></div>`;
+
+  const isAsu   = team.seoname === 'arizona-st';
+  const isWin   = team.isWinner === true;
+  const isElim  = team.eliminated === true;
+  const hasScore = team.score != null;
+
+  const rowClass = ['ncaa-team-row',
+    isAsu ? 'ncaa-asu' : '',
+    isWin && isFinal ? 'ncaa-winner' : '',
+    !isWin && isFinal && !isElim ? 'ncaa-loser' : '',
+    isElim ? 'ncaa-eliminated' : '',
+  ].filter(Boolean).join(' ');
+
+  const seedHtml = team.seed != null
+    ? `<span class="ncaa-team-seed">${esc(team.seed)}</span>`
+    : `<span class="ncaa-team-seed"></span>`;
+
+  const logoUrl = team.logoUrl ? `https://www.ncaa.com${team.logoUrl}` : null;
+  const logoHtml = logoUrl
+    ? `<img class="ncaa-team-logo" src="${esc(logoUrl)}" alt="" loading="lazy">`
+    : `<span class="ncaa-team-abbr">${esc((team.name6Char || team.nameShort || 'TBD').slice(0, 6).toUpperCase())}</span>`;
+
+  const recordHtml = team.sectionRecord
+    ? `<span class="ncaa-team-record">${esc(team.sectionRecord)}</span>` : '';
+
+  const scoreHtml = hasScore
+    ? `<span class="ncaa-team-score${isWin && isFinal ? ' ncaa-win-score' : ''}">${esc(team.score)}</span>`
+    : '';
+
+  const elimHtml = isElim ? '<span class="ncaa-elim-label">ELIM</span>' : '';
+
+  return `<div class="${rowClass}">${seedHtml}${logoHtml}<span class="ncaa-team-name">${esc(team.nameShort || 'TBD')}</span>${recordHtml}${scoreHtml}${elimHtml}</div>`;
+}
+
+function _ncaaFormatDate(dateStr) {
+  // dateStr: "05/29/2026"
+  if (!dateStr) return '';
+  try {
+    const [m, d, y] = dateStr.split('/');
+    return new Date(parseInt(y), parseInt(m) - 1, parseInt(d))
+      .toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  } catch {
+    return dateStr;
+  }
 }
 
 function renderUpcomingTournament(tournament) {
