@@ -147,6 +147,9 @@ function _renderLiveView(games, tournaments, nextGame) {
   // Async-load NCAA bracket into any placeholder that was rendered
   const bracketPlaceholder = container.querySelector('#ncaa-bracket-placeholder');
   if (bracketPlaceholder) {
+    // Reset scroll immediately (stale HTML may have been pre-rendered in the shell)
+    const rounds = bracketPlaceholder.querySelector('.ncaa-bracket-rounds');
+    if (rounds) rounds.scrollLeft = 0;
     _loadNcaaBracket(bracketPlaceholder.dataset.sport || 'Baseball').catch(() => {});
   }
 
@@ -367,18 +370,26 @@ function renderNcaaBracketShell(tournament) {
     </div>`;
 }
 
+function _setBracketHtml(el, html) {
+  if (!el) return;
+  el.innerHTML = html;
+  // Always start at the left edge — browser may auto-scroll to a focused/highlighted element
+  const rounds = el.querySelector('.ncaa-bracket-rounds');
+  if (rounds) rounds.scrollLeft = 0;
+}
+
 async function _loadNcaaBracket(sport) {
   const placeholder = document.getElementById('ncaa-bracket-placeholder');
   if (!placeholder) return;
 
   // If cache is fresh (< 30s), just use it — no fetch needed
   if (_ncaaBracketHtml && Date.now() - _ncaaBracketLoadedAt < 30_000) {
-    placeholder.innerHTML = _ncaaBracketHtml;
+    _setBracketHtml(placeholder, _ncaaBracketHtml);
     return;
   }
 
   // Show stale data immediately while fetching
-  if (_ncaaBracketHtml) placeholder.innerHTML = _ncaaBracketHtml;
+  if (_ncaaBracketHtml) _setBracketHtml(placeholder, _ncaaBracketHtml);
 
   try {
     const secRes = await fetch('/api/ncaa/asu-section');
@@ -393,9 +404,7 @@ async function _loadNcaaBracket(sport) {
     _ncaaBracketHtml     = _buildNcaaBracketHtml(games);
     _ncaaBracketLoadedAt = Date.now();
 
-    // Re-find placeholder (may have been replaced by a poll re-render)
-    const el = document.getElementById('ncaa-bracket-placeholder');
-    if (el) el.innerHTML = _ncaaBracketHtml;
+    _setBracketHtml(document.getElementById('ncaa-bracket-placeholder'), _ncaaBracketHtml);
   } catch (err) {
     console.warn('[live] NCAA bracket fetch failed:', err.message);
     const el = document.getElementById('ncaa-bracket-placeholder');
