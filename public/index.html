@@ -20,18 +20,20 @@
 <body>
 
 <header>
-  <div class="logo"><span>ASU</span><span class="logo-text"> Sun Devil Athletics</span></div>
-  <div class="header-controls">
-    <div class="view-toggle">
-      <button id="btn-live-view" onclick="setView('live')">
-        <span id="live-tab-dot" class="live-tab-dot" style="display:none"></span>Live
-      </button>
-      <button id="btn-calendar-view" onclick="setView('calendar')">Calendar</button>
-      <button id="btn-list-view" onclick="setView('list')">List</button>
-      <button id="btn-map-view" onclick="setView('map')">Map</button>
+  <div class="header-inner">
+    <div class="logo"><span>ASU</span><span class="logo-text"> Sun Devil Athletics</span></div>
+    <div class="header-controls">
+      <div class="view-toggle">
+        <button id="btn-live-view" onclick="setView('live')">
+          <span id="live-tab-dot" class="live-tab-dot" style="display:none"></span>Live
+        </button>
+        <button id="btn-calendar-view" onclick="setView('calendar')">Calendar</button>
+        <button id="btn-list-view" onclick="setView('list')">List</button>
+        <button id="btn-map-view" onclick="setView('map')">Map</button>
+      </div>
+      <button class="btn-filters-toggle" id="btn-filters" onclick="toggleFilters()">Filters</button>
+      <button class="btn-refresh" id="btn-refresh" onclick="triggerRefresh()">Refresh</button>
     </div>
-    <button class="btn-filters-toggle" id="btn-filters" onclick="toggleFilters()">Filters</button>
-    <button class="btn-refresh" id="btn-refresh" onclick="triggerRefresh()">Refresh</button>
   </div>
 </header>
 

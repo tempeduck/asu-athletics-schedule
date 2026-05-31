@@ -27,21 +27,22 @@ body {
 header {
   background: var(--maroon);
   color: white;
-  padding: 0 20px;
-  /* Push content below the iOS status bar / Dynamic Island */
+  /* Inset padding fills behind the notch/Dynamic Island; content sits below it */
   padding-top: env(safe-area-inset-top);
-  /* Height grows to include the safe area; base content area stays 56px */
-  min-height: calc(56px + env(safe-area-inset-top));
-  height: auto;
-  display: flex;
-  align-items: center;
-  gap: 16px;
   flex-shrink: 0;
   box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-  /* Stick to the very top including behind the notch */
   position: sticky;
   top: 0;
   z-index: 100;
+}
+
+/* Fixed-height content zone — always exactly 56px, centered regardless of inset */
+.header-inner {
+  height: 56px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 header .logo {
@@ -1063,9 +1064,8 @@ main {
     min-height: 100vh;
   }
 
-  header {
+  .header-inner {
     padding: 0 12px;
-    padding-top: env(safe-area-inset-top);
     gap: 8px;
   }
 
