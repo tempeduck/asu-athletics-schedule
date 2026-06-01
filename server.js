@@ -15,6 +15,7 @@ const _espnScoreboardCache = new Map(); // yyyymmdd    → {data, expiresAt}
 const _ncaaConfigCache     = { data: null, expiresAt: 0 };
 const _ncaaSectionCache    = { data: null, expiresAt: 0 };
 const _ncaaBracketCache    = new Map(); // sectionId  → {data, expiresAt}
+const _cfStatsCache        = new Map(); // `${days}`  → {data, expiresAt}
 
 // Sport slug mapping for ESPN summary endpoint
 const ESPN_SPORT_SLUGS = {
@@ -618,6 +619,75 @@ app.get('/api/events.ics', generalLimit, (req, res) => {
     console.error('[api] /api/events.ics error:', err.message);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ── Cloudflare Analytics proxy ────────────────────────────────────────────────
+
+app.get('/api/cf-stats', generalLimit, async (req, res) => {
+  const token  = process.env.CF_API_TOKEN || process.env.CF_TOKEN;
+  const zoneId = process.env.CF_ZONE_ID;
+  if (!token || !zoneId) {
+    return res.status(503).json({
+      error: 'Stats not configured',
+      missing: [!token && 'CF_API_TOKEN', !zoneId && 'CF_ZONE_ID'].filter(Boolean),
+    });
+  }
+
+  const days     = Math.min(Math.max(parseInt(req.query.days) || 7, 1), 90);
+  const cacheKey = String(days);
+  const now      = Date.now();
+  const cached   = _cfStatsCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) return res.json(cached.data);
+
+  const endDate   = new Date().toISOString().slice(0, 10);
+  const startDate = new Date(now - (days - 1) * 86400000).toISOString().slice(0, 10);
+
+  // Single httpRequests1dGroups query — supports full date range on all plan tiers.
+  // High-cardinality fields (path, referrer, device) require paid plans on the
+  // adaptive dataset, so we use the pre-aggregated maps available here instead.
+  const query = `{
+    viewer {
+      zones(filter: { zoneTag: "${zoneId}" }) {
+        trend: httpRequests1dGroups(
+          filter: { date_geq: "${startDate}", date_leq: "${endDate}" }
+          limit: 93 orderBy: [date_ASC]
+        ) {
+          dimensions { date }
+          sum {
+            requests pageViews bytes
+            countryMap     { clientCountryName requests }
+            browserMap     { uaBrowserFamily pageViews }
+            contentTypeMap { edgeResponseContentTypeName requests }
+            responseStatusMap    { edgeResponseStatus requests }
+            clientHTTPVersionMap { clientHTTPProtocol requests }
+          }
+        }
+      }
+    }
+  }`;
+
+  try {
+    const cfRes = await fetch('https://api.cloudflare.com/client/v4/graphql', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query }),
+      timeout: 15000,
+    });
+    if (!cfRes.ok) return res.status(502).json({ error: `Cloudflare HTTP ${cfRes.status}` });
+    const data = await cfRes.json();
+    _cfStatsCache.set(cacheKey, { data, expiresAt: now + 10 * 60 * 1000 }); // 10-min TTL
+    res.json(data);
+  } catch (err) {
+    console.error('[api] /api/cf-stats error:', err.message);
+    res.status(502).json({ error: 'Cloudflare API unavailable' });
+  }
+});
+
+app.get('/stats', generalLimit, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'stats.html'));
 });
 
 startScheduler();

@@ -1,0 +1,441 @@
+<!--
+  /stats — ASU Athletics Site Analytics Dashboard
+  Backed by Cloudflare Zone Analytics GraphQL API (httpRequests1dGroups).
+  Note: path-level and referrer data require a Cloudflare paid plan; this
+  dashboard uses the pre-aggregated maps available on all plan tiers.
+
+  ── ZERO TRUST ACCESS SETUP (one-time, protects this page) ──────────────────
+  1. dash.cloudflare.com → Zero Trust → Access → Applications → Add Application
+  2. Type: Self-hosted
+  3. Application name: "ASU Analytics"
+  4. Subdomain: asu  |  Domain: dikaiaserver.com  |  Path: /stats
+  5. Session Duration: 24 hours
+  6. Next → Create Access Policy:
+       Policy name: Owner  |  Action: Allow
+       Rule: Emails in list → robert.scheib@gmail.com
+  7. Save — Cloudflare will now require login to reach /stats
+  ────────────────────────────────────────────────────────────────────────────
+
+  ── REQUIRED ENV VARS (loaded from /home/robert/projects/secrets.env) ───────
+    CF_ZONE_ID=<Cloudflare dashboard → dikaiaserver.com → Overview → Zone ID>
+    CF_API_TOKEN=<API token with Zone: Analytics: Read permission>
+  ────────────────────────────────────────────────────────────────────────────
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ASU · Analytics</title>
+<style>
+:root {
+  --maroon: #8C1D40;
+  --gold:   #FFC627;
+  --gold-a: rgba(255,198,39,.13);
+  --bg:     #0d0d0d;
+  --s0:     #101010;
+  --s1:     #181818;
+  --s2:     #1f1f1f;
+  --border: #262626;
+  --text:   #e0e0e0;
+  --dim:    #666;
+  --muted:  #303030;
+  --mono:   'Courier New', Courier, monospace;
+  --r:      6px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+body {
+  background: var(--bg);
+  background-image: repeating-linear-gradient(
+    0deg, transparent, transparent 1px,
+    rgba(255,255,255,.015) 1px, rgba(255,255,255,.015) 2px
+  );
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  min-height: 100vh;
+}
+
+/* Header */
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+  padding: 13px 20px;
+  background: var(--s0); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 10;
+}
+.hl { display: flex; align-items: center; gap: 10px; }
+.hr { display: flex; align-items: center; gap: 10px; }
+.logo { font-weight: 900; font-size: 1rem; letter-spacing: .06em; color: var(--gold); background: var(--maroon); padding: 3px 8px; border-radius: 4px; }
+.htitle { font-size: .9rem; font-weight: 600; color: var(--dim); letter-spacing: .03em; }
+
+.dp { display: flex; gap: 4px; }
+.db { background: none; border: 1px solid var(--border); color: var(--dim); padding: 4px 11px; border-radius: 20px; cursor: pointer; font-size: .76rem; transition: border-color .15s, color .15s; }
+.db:hover { border-color: var(--gold); color: var(--gold); }
+.db.on { background: var(--gold); border-color: var(--gold); color: #000; font-weight: 700; }
+
+.upd { font-size: .7rem; color: var(--muted); font-family: var(--mono); }
+.rfbtn { background: none; border: 1px solid var(--border); color: var(--dim); width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; transition: border-color .15s, color .15s; }
+.rfbtn:hover { border-color: var(--gold); color: var(--gold); }
+.rfbtn.spin { animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Layout */
+main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 48px; display: flex; flex-direction: column; gap: 16px; }
+.kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+@media(max-width:680px){ .kpi-row { grid-template-columns:1fr 1fr; } }
+@media(max-width:380px){ .kpi-row { grid-template-columns:1fr; } }
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media(max-width:760px){ .g2 { grid-template-columns:1fr; } }
+
+/* Cards */
+.card { background: var(--s1); border: 1px solid var(--border); border-radius: var(--r); padding: 18px; }
+.ct { font-size: .6rem; font-weight: 700; letter-spacing: .13em; color: var(--dim); text-transform: uppercase; margin-bottom: 14px; }
+
+/* KPI */
+.kc { background: var(--s1); border: 1px solid var(--border); border-radius: var(--r); padding: 18px 20px; display: flex; flex-direction: column; gap: 5px; }
+.kc.hi { border-color: rgba(255,198,39,.22); background: var(--s2); }
+.kv { font-family: var(--mono); font-size: 1.8rem; font-weight: 700; color: var(--gold); line-height: 1; }
+.kl { font-size: .6rem; text-transform: uppercase; letter-spacing: .1em; color: var(--dim); }
+.ks { font-size: .7rem; color: var(--muted); margin-top: 1px; }
+
+/* Skeleton */
+.sk { border-radius: var(--r); background: linear-gradient(90deg, var(--s1) 25%, var(--s2) 50%, var(--s1) 75%); background-size: 200% 100%; animation: shim 1.4s infinite; }
+.sk.kc { height: 86px; }
+@keyframes shim { to { background-position: -200% 0; } }
+
+/* Chart */
+.cwrap { overflow-x: auto; }
+.cwrap svg { display: block; min-width: 100%; }
+.tick { fill: var(--dim); font-size: 10px; font-family: var(--mono); }
+.bar { cursor: crosshair; }
+.bar:hover { opacity: .72; }
+
+/* Tooltip */
+#tip { position: fixed; pointer-events: none; z-index: 200; background: var(--s2); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 4px; font-size: .76rem; font-family: var(--mono); white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,.5); display: none; }
+
+/* Bar list */
+.blist { display: flex; flex-direction: column; gap: 9px; }
+.bi { display: flex; align-items: center; gap: 8px; }
+.biflag { font-size: .95rem; width: 22px; text-align: center; flex-shrink: 0; }
+.biname { font-size: .78rem; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bicnt { font-family: var(--mono); font-size: .74rem; color: var(--dim); flex-shrink: 0; min-width: 42px; text-align: right; }
+.bitrack { height: 3px; background: var(--muted); border-radius: 2px; flex-shrink: 0; width: 68px; }
+.bifill { height: 100%; border-radius: 2px; }
+
+/* Empty / Error */
+.empty { color: var(--muted); font-size: .78rem; padding: 4px 0; }
+.errc { background: rgba(140,29,64,.1); border: 1px solid var(--maroon); border-radius: var(--r); padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+.errc strong { color: #e57373; }
+.errc code { font-size: .74rem; color: var(--dim); font-family: var(--mono); }
+.errc p { font-size: .74rem; color: #555; }
+.rtbtn { align-self: flex-start; margin-top: 4px; background: none; border: 1px solid var(--maroon); color: #e57373; padding: 5px 14px; border-radius: 4px; cursor: pointer; font-size: .76rem; }
+.rtbtn:hover { background: rgba(140,29,64,.2); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hl">
+    <span class="logo">ASU</span>
+    <span class="htitle">Site Analytics</span>
+  </div>
+  <div class="hr">
+    <div class="dp" id="dp">
+      <button class="db on" data-d="7">7d</button>
+      <button class="db" data-d="30">30d</button>
+      <button class="db" data-d="90">90d</button>
+    </div>
+    <span class="upd" id="upd">—</span>
+    <button class="rfbtn" id="rfbtn" title="Refresh" onclick="doRefresh()">↻</button>
+  </div>
+</header>
+
+<main>
+  <div class="kpi-row" id="kpi">
+    <div class="sk kc"></div><div class="sk kc"></div>
+    <div class="sk kc"></div><div class="sk kc"></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Requests Over Time</div>
+    <div class="cwrap" id="chart"><div class="sk" style="height:150px"></div></div>
+  </div>
+
+  <div class="g2">
+    <div class="card"><div class="ct">Countries</div><div id="countries"><div class="sk" style="height:200px"></div></div></div>
+    <div class="card"><div class="ct">Browsers</div><div id="browsers"><div class="sk" style="height:200px"></div></div></div>
+  </div>
+
+  <div class="g2">
+    <div class="card"><div class="ct">Content Types</div><div id="ctypes"><div class="sk" style="height:180px"></div></div></div>
+    <div class="card"><div class="ct">HTTP Versions</div><div id="httpver"><div class="sk" style="height:180px"></div></div></div>
+  </div>
+</main>
+
+<div id="tip"></div>
+
+<script>
+'use strict';
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+// Generate flag emoji from ISO-3166-1 alpha-2 country code via Unicode math
+function isoFlag(code) {
+  if (!code || code.length !== 2) return '🌐';
+  return Array.from(code.toUpperCase())
+    .map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65))
+    .join('');
+}
+
+// Full country name from ISO 2-letter code (Intl.DisplayNames, no lookup table)
+const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+function cname(code) {
+  try { return regionNames.of(code.toUpperCase()) || code; } catch { return code; }
+}
+
+function fmt(n) {
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return n.toLocaleString();
+}
+function fmtBytes(b) {
+  if (b >= 1e9) return (b / 1e9).toFixed(2) + ' GB';
+  if (b >= 1e6) return (b / 1e6).toFixed(1) + ' MB';
+  if (b >= 1e3) return (b / 1e3).toFixed(0) + ' KB';
+  return b + ' B';
+}
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function relTime(ts) {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  return Math.floor(s / 3600) + 'h ago';
+}
+function fmtDate(iso) {
+  return new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// ── State ────────────────────────────────────────────────────────────────────
+let days = 7;
+let fetchedAt = null;
+
+// ── Fetch ────────────────────────────────────────────────────────────────────
+async function load(d) {
+  document.getElementById('rfbtn').classList.add('spin');
+  try {
+    const r = await fetch('/api/cf-stats?days=' + d);
+    const json = await r.json();
+    if (!r.ok) throw new Error(json.error || 'HTTP ' + r.status);
+    if (json.errors?.length) throw new Error(json.errors.map(e => e.message).join('; '));
+    const trend = json?.data?.viewer?.zones?.[0]?.trend || [];
+    fetchedAt = Date.now();
+    document.getElementById('upd').textContent = 'Updated: ' + relTime(fetchedAt);
+    render(trend, d);
+  } catch(err) {
+    showError(err.message);
+  } finally {
+    document.getElementById('rfbtn').classList.remove('spin');
+  }
+}
+
+// ── Render all ───────────────────────────────────────────────────────────────
+function render(trend, d) {
+  renderKPI(trend, d);
+  renderChart(trend, d);
+  renderCountries(trend);
+  renderBrowsers(trend);
+  renderContentTypes(trend);
+  renderHTTPVersions(trend);
+}
+
+// ── KPI ──────────────────────────────────────────────────────────────────────
+function renderKPI(trend, d) {
+  const totalReqs  = trend.reduce((s,r) => s + (r.sum.requests||0), 0);
+  const totalBytes = trend.reduce((s,r) => s + (r.sum.bytes||0), 0);
+  const avgDay     = d > 0 ? Math.round(totalReqs / d) : 0;
+
+  // Aggregate countryMap for top country
+  const cmap = {};
+  trend.forEach(r => (r.sum.countryMap||[]).forEach(c => {
+    cmap[c.clientCountryName] = (cmap[c.clientCountryName]||0) + c.requests;
+  }));
+  const top = Object.entries(cmap).sort((a,b)=>b[1]-a[1])[0];
+
+  document.getElementById('kpi').innerHTML = `
+    <div class="kc hi">
+      <div class="kv">${fmt(totalReqs)}</div>
+      <div class="kl">Total Requests</div>
+      <div class="ks">CDN-level · incl. API + assets</div>
+    </div>
+    <div class="kc">
+      <div class="kv">${fmtBytes(totalBytes)}</div>
+      <div class="kl">Bandwidth</div>
+      <div class="ks">Edge egress bytes</div>
+    </div>
+    <div class="kc">
+      <div class="kv">${fmt(avgDay)}</div>
+      <div class="kl">Avg / Day</div>
+      <div class="ks">Over ${d} day${d!==1?'s':''}</div>
+    </div>
+    <div class="kc">
+      <div class="kv">${top ? isoFlag(top[0]) : '—'}</div>
+      <div class="kl">Top Country</div>
+      <div class="ks">${top ? esc(cname(top[0])) : '—'}</div>
+    </div>`;
+}
+
+// ── Bar chart ────────────────────────────────────────────────────────────────
+function renderChart(trend, d) {
+  const el = document.getElementById('chart');
+  if (!trend.length) { el.innerHTML = '<div class="empty">No data</div>'; return; }
+
+  const W = 760, H = 150, PT = 8, PB = 32;
+  const ch = H - PT - PB;
+  const n  = trend.length;
+  const mx = Math.max(...trend.map(r => r.sum.requests||0), 1);
+  const sw = W / n;
+  const bw = Math.max(sw * 0.58, 2);
+  const le = n <= 7 ? 1 : n <= 31 ? 7 : 15;
+
+  const bars = trend.map((r,i) => {
+    const v  = r.sum.requests||0;
+    const bh = Math.max((v/mx)*ch, 1);
+    const bx = i*sw + (sw-bw)/2;
+    const by = PT + ch - bh;
+    const lbl = `${fmtDate(r.dimensions.date)}: ${v.toLocaleString()} req`;
+    return `<rect class="bar" x="${bx.toFixed(1)}" y="${by.toFixed(1)}"
+      width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" fill="#FFC627" rx="1"
+      onmouseenter="showTip(event,${JSON.stringify(lbl)})" onmouseleave="hideTip()"/>`;
+  }).join('');
+
+  const ticks = trend.map((r,i) => {
+    if (i % le !== 0) return '';
+    const cx = i*sw + sw/2;
+    return `<text class="tick" x="${cx.toFixed(1)}" y="${PT+ch+15}" text-anchor="middle">${fmtDate(r.dimensions.date)}</text>`;
+  }).join('');
+
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"
+    style="width:100%;height:${H}px;overflow:visible">
+    <line x1="0" y1="${PT+ch}" x2="${W}" y2="${PT+ch}" stroke="#262626" stroke-width="1"/>
+    ${bars}${ticks}
+    <text class="tick" x="3" y="${PT+9}" style="fill:#3a3a3a">${fmt(mx)}</text>
+  </svg>`;
+}
+
+// ── Bar list helper ───────────────────────────────────────────────────────────
+function barList(items, { color = '#FFC627', flag = false } = {}) {
+  if (!items.length) return '<div class="empty">No data</div>';
+  const max = items[0][1];
+  return '<div class="blist">' + items.map(([label, val, iso]) => {
+    const pct = ((val/max)*100).toFixed(1);
+    const c = typeof color === 'function' ? color(label) : color;
+    const f = flag && iso ? `<span class="biflag">${isoFlag(iso)}</span>` : '';
+    return `<div class="bi">
+      ${f}<span class="biname">${esc(label)}</span>
+      <span class="bicnt">${fmt(val)}</span>
+      <div class="bitrack"><div class="bifill" style="width:${pct}%;background:${c}"></div></div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+// ── Countries ─────────────────────────────────────────────────────────────────
+function renderCountries(trend) {
+  const agg = {};
+  trend.forEach(r => (r.sum.countryMap||[]).forEach(c => {
+    agg[c.clientCountryName] = (agg[c.clientCountryName]||0) + c.requests;
+  }));
+  const items = Object.entries(agg).sort((a,b)=>b[1]-a[1]).slice(0,10)
+    .map(([code, cnt]) => [cname(code), cnt, code]);
+  document.getElementById('countries').innerHTML = barList(items, { flag: true });
+}
+
+// ── Browsers ──────────────────────────────────────────────────────────────────
+function renderBrowsers(trend) {
+  const BCOLORS = { Chrome:'#4285F4', ChromeMobile:'#4285F4', Chromium:'#4285F4',
+    Firefox:'#FF7139', Safari:'#006CFF', MobileSafari:'#006CFF',
+    Edge:'#0078D7', Opera:'#FF1B2D', Samsung:'#1428A0', Curl:'#777', Unknown:'#444' };
+  const agg = {};
+  trend.forEach(r => (r.sum.browserMap||[]).forEach(b => {
+    const n = b.uaBrowserFamily||'Unknown';
+    agg[n] = (agg[n]||0) + (b.pageViews||0);
+  }));
+  const items = Object.entries(agg).sort((a,b)=>b[1]-a[1]).slice(0,8)
+    .map(([name, pv]) => [name, pv]);
+  document.getElementById('browsers').innerHTML = barList(items,
+    { color: n => BCOLORS[n] || '#FFC627' });
+}
+
+// ── Content Types ─────────────────────────────────────────────────────────────
+function renderContentTypes(trend) {
+  const LABELS = { html:'HTML', json:'JSON / API', js:'JavaScript', css:'CSS',
+    png:'Images', jpg:'Images', gif:'Images', svg:'Images', ico:'Images',
+    txt:'Text', xml:'XML', empty:'Empty (204/304)', unknown:'Other' };
+  const COLORS = { html:'#FFC627', 'json':'#4a9eff', js:'#f7df1e', css:'#264de4',
+    Images:'#e91e63', txt:'#aaa', xml:'#ff9800', 'Empty (204/304)':'#555', Other:'#444' };
+
+  const agg = {};
+  trend.forEach(r => (r.sum.contentTypeMap||[]).forEach(c => {
+    const raw = c.edgeResponseContentTypeName;
+    const label = LABELS[raw] || LABELS[raw?.split('/')?.[0]] || 'Other';
+    agg[label] = (agg[label]||0) + c.requests;
+  }));
+  const items = Object.entries(agg).sort((a,b)=>b[1]-a[1]).slice(0,8)
+    .map(([label, cnt]) => [label, cnt]);
+  document.getElementById('ctypes').innerHTML = barList(items,
+    { color: n => COLORS[n] || '#666' });
+}
+
+// ── HTTP Versions ─────────────────────────────────────────────────────────────
+function renderHTTPVersions(trend) {
+  const COLORS = { 'HTTP/1.1':'#666', 'HTTP/2':'#4a9eff', 'HTTP/3':'#FFC627' };
+  const agg = {};
+  trend.forEach(r => (r.sum.clientHTTPVersionMap||[]).forEach(v => {
+    const p = v.clientHTTPProtocol||'Other';
+    agg[p] = (agg[p]||0) + v.requests;
+  }));
+  const items = Object.entries(agg).sort((a,b)=>b[1]-a[1])
+    .map(([proto, cnt]) => [proto, cnt]);
+  document.getElementById('httpver').innerHTML = barList(items,
+    { color: n => COLORS[n] || '#555' });
+}
+
+// ── Error ─────────────────────────────────────────────────────────────────────
+function showError(msg) {
+  document.getElementById('kpi').innerHTML = `<div class="errc" style="grid-column:1/-1">
+    <strong>Failed to load analytics</strong>
+    <code>${esc(msg)}</code>
+    <p>Ensure CF_API_TOKEN (Zone → Analytics → Read) and CF_ZONE_ID are set in secrets.env and the service has been restarted.</p>
+    <button class="rtbtn" onclick="doRefresh()">Retry</button>
+  </div>`;
+  ['chart','countries','browsers','ctypes','httpver']
+    .forEach(id => { const e = document.getElementById(id); if(e) e.innerHTML=''; });
+}
+
+// ── Tooltip ───────────────────────────────────────────────────────────────────
+const tipEl = document.getElementById('tip');
+function showTip(e, text) { tipEl.textContent = text; tipEl.style.display = 'block'; moveTip(e); }
+function moveTip(e) { tipEl.style.left=(e.clientX+14)+'px'; tipEl.style.top=(e.clientY-34)+'px'; }
+function hideTip() { tipEl.style.display = 'none'; }
+document.addEventListener('mousemove', e => { if(tipEl.style.display!=='none') moveTip(e); });
+
+// ── Day selector ──────────────────────────────────────────────────────────────
+document.getElementById('dp').addEventListener('click', e => {
+  const b = e.target.closest('.db');
+  if (!b) return;
+  document.querySelectorAll('.db').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+  days = parseInt(b.dataset.d, 10);
+  load(days);
+});
+
+setInterval(() => {
+  if (fetchedAt) document.getElementById('upd').textContent = 'Updated: ' + relTime(fetchedAt);
+}, 30000);
+
+function doRefresh() { load(days); }
+
+load(7);
+</script>
+</body>
+</html>
