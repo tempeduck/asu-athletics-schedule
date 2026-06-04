@@ -1,7 +1,7 @@
 const cron = require('node-cron');
 const { fetchAndStore } = require('./fetcher');
 const { fetchAndStoreScores } = require('./scores');
-const { getEventCount, getEventsPendingPush, markPushSent, cleanupExpiredSubscriptions, getGameSubscribers } = require('./db');
+const { getEventCount, getEventsPendingPush, markPushSent, cleanupExpiredSubscriptions, getGameSubscribers, getEndedGamesWithSubscribers } = require('./db');
 const { geocodeAllMissing } = require('./geocoder');
 
 function startScheduler() {
@@ -39,6 +39,27 @@ function startScheduler() {
       if (events.length) console.log(`[scheduler] push: sent alerts for ${events.length} event(s)`);
     } catch (err) {
       console.error('[scheduler] push tick failed:', err.message);
+    }
+  });
+
+  // Every 3 minutes during game hours: send final-score push notifications.
+  // Score data is written to DB by the frontend-driven /api/live flow (fetchLiveGames).
+  // If no user has the live tab open when a game ends, DB scores won't be updated
+  // until the nightly sync runs — this is a known limitation of the frontend-dependent
+  // score writing approach.
+  cron.schedule('*/3 8-23 * * *', async () => {
+    let push;
+    try { push = require('./push'); } catch (err) {
+      console.error('[scheduler] push module load failed:', err.message); return;
+    }
+    try {
+      const ended = getEndedGamesWithSubscribers();
+      for (const event of ended) {
+        await push.sendGameFinalAlert(event.id);
+      }
+      if (ended.length) console.log(`[scheduler] final-push: sent alerts for ${ended.length} event(s)`);
+    } catch (err) {
+      console.error('[scheduler] final-push tick failed:', err.message);
     }
   });
 

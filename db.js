@@ -59,7 +59,9 @@ if (!existingCols.includes('opp_score'))  db.exec('ALTER TABLE events ADD COLUMN
 if (!existingCols.includes('result'))     db.exec('ALTER TABLE events ADD COLUMN result TEXT');
 if (!existingCols.includes('lat'))        db.exec('ALTER TABLE events ADD COLUMN lat REAL');
 if (!existingCols.includes('lng'))        db.exec('ALTER TABLE events ADD COLUMN lng REAL');
-if (!existingCols.includes('push_sent'))  db.exec('ALTER TABLE events ADD COLUMN push_sent INTEGER NOT NULL DEFAULT 0');
+if (!existingCols.includes('push_sent'))       db.exec('ALTER TABLE events ADD COLUMN push_sent INTEGER NOT NULL DEFAULT 0');
+if (!existingCols.includes('final_push_sent')) db.exec('ALTER TABLE events ADD COLUMN final_push_sent INTEGER NOT NULL DEFAULT 0');
+if (!existingCols.includes('game_status'))     db.exec('ALTER TABLE events ADD COLUMN game_status TEXT');
 
 // ── Push subscription tables ──────────────────────────────────────────────────
 
@@ -388,4 +390,26 @@ function markPushSent(eventId) {
   db.prepare('UPDATE events SET push_sent = 1 WHERE id = @id').run({ id: eventId });
 }
 
-module.exports = { upsertMany, queryEvents, getSports, getSeasons, getRecordsBySeason, getLocations, getEventCount, updateScore, upsertESPNEvent, getEventsNeedingGeocode, updateCoordinates, REGIONS, insertFeedback, getUnreadCount, getAllFeedback, markRead, markAllRead, deleteFeedback, upsertPushSubscription, deletePushSubscription, addGameSubscription, removeGameSubscription, getGameSubscribers, cleanupExpiredSubscriptions, getEventsPendingPush, markPushSent };
+function getEventById(id) {
+  return db.prepare('SELECT * FROM events WHERE id = @id').get({ id });
+}
+
+function updateGameStatus(id, status) {
+  db.prepare('UPDATE events SET game_status = @status WHERE id = @id').run({ id, status });
+}
+
+function markFinalPushSent(eventId) {
+  db.prepare('UPDATE events SET final_push_sent = 1 WHERE id = @id').run({ id: eventId });
+}
+
+function getEndedGamesWithSubscribers() {
+  return db.prepare(`
+    SELECT e.id, e.title, e.sport, e.asu_score, e.opp_score, e.result, e.game_type
+    FROM events e
+    WHERE e.result IS NOT NULL
+      AND e.final_push_sent = 0
+      AND EXISTS (SELECT 1 FROM game_subscriptions gs WHERE gs.event_id = e.id)
+  `).all();
+}
+
+module.exports = { upsertMany, queryEvents, getSports, getSeasons, getRecordsBySeason, getLocations, getEventCount, updateScore, upsertESPNEvent, getEventsNeedingGeocode, updateCoordinates, REGIONS, insertFeedback, getUnreadCount, getAllFeedback, markRead, markAllRead, deleteFeedback, upsertPushSubscription, deletePushSubscription, addGameSubscription, removeGameSubscription, getGameSubscribers, cleanupExpiredSubscriptions, getEventsPendingPush, markPushSent, getEventById, updateGameStatus, markFinalPushSent, getEndedGamesWithSubscribers };

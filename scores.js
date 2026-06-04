@@ -1,5 +1,5 @@
 const fetch = require('node-fetch');
-const { updateScore, upsertESPNEvent, queryEvents } = require('./db');
+const { updateScore, upsertESPNEvent, queryEvents, updateGameStatus } = require('./db');
 
 const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports';
 
@@ -601,11 +601,16 @@ async function fetchLiveGames() {
         const scoreData = extractScore(espnEvent);
         if (scoreData) {
           const dbMatch = findDBMatch(scoreData, dbEvents, new Date(espnEvent.date));
-          if (dbMatch && (dbMatch.result !== scoreData.result ||
-              dbMatch.asu_score !== scoreData.asu_score ||
-              dbMatch.opp_score !== scoreData.opp_score)) {
-            updateScore(dbMatch.id, scoreData.asu_score, scoreData.opp_score, scoreData.result);
-            console.log(`[live] Auto-updated completed game: ${dbMatch.title}`);
+          if (dbMatch) {
+            if (dbMatch.result !== scoreData.result ||
+                dbMatch.asu_score !== scoreData.asu_score ||
+                dbMatch.opp_score !== scoreData.opp_score) {
+              updateScore(dbMatch.id, scoreData.asu_score, scoreData.opp_score, scoreData.result);
+              console.log(`[live] Auto-updated completed game: ${dbMatch.title}`);
+            }
+            if (dbMatch.game_status !== 'post') {
+              updateGameStatus(dbMatch.id, 'post');
+            }
           }
         }
       }
