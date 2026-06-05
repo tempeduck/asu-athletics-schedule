@@ -152,7 +152,12 @@
 <script src="whats-new.js?v=2"></script>
 <script src="feedback.js" defer></script>
 <script>
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+    // When a new SW takes control (after skipWaiting), reload so the page
+    // picks up fresh cached files. Critical for PWA installs on iOS Safari.
+    navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
+  }
 </script>
 
 </body>
