@@ -872,11 +872,13 @@ function startCountdown(elementId, targetTs) {
     if (!el) { clearCountdown(); return; }
     const diff = targetTs - Math.floor(Date.now() / 1000);
     if (diff <= 0) { el.textContent = 'Starting now!'; clearCountdown(); return; }
-    const h = Math.floor(diff / 3600);
+    const d = Math.floor(diff / 86400);
+    const h = Math.floor((diff % 86400) / 3600);
     const m = Math.floor((diff % 3600) / 60);
     const s = diff % 60;
     const parts = [];
-    if (h > 0) parts.push(`${h}h`);
+    if (d > 0) parts.push(`${d}d`);
+    if (h > 0 || d > 0) parts.push(`${h}h`);
     parts.push(`${String(m).padStart(2, '0')}m`);
     parts.push(`${String(s).padStart(2, '0')}s`);
     el.textContent = parts.join(' ');

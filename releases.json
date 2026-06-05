@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "version": "1.1.2",
+      "date": "2026-06-04",
+      "title": "Countdown Improvements",
+      "features": [
+        "Countdowns longer than 48 hours now show days (e.g. 3d 04h 22m 10s)"
+      ]
+    },
+    {
       "version": "1.1.1",
       "date": "2026-06-04",
       "title": "Bug Fixes",
