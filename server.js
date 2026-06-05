@@ -22,6 +22,9 @@ if (!process.env.VAPID_PUBLIC_KEY) {
   } catch {}
 }
 
+const { version: APP_VERSION } = require('./package.json');
+const _releasesData = require('./releases.json');
+
 // ── In-memory caches ──────────────────────────────────────────────────────────
 const _espnGameCache       = new Map(); // espnEventId → {data, expiresAt}
 const _espnScoreboardCache = new Map(); // yyyymmdd    → {data, expiresAt}
@@ -759,6 +762,15 @@ app.delete('/api/subscribe/game', generalLimit, (req, res) => {
     console.error('[api] /api/subscribe/game error:', err.message);
     res.status(500).json({ error: err.message });
   }
+});
+
+app.get('/api/version', generalLimit, (req, res) => {
+  res.json({ version: APP_VERSION });
+});
+
+app.get('/api/releases', generalLimit, (req, res) => {
+  res.set('Cache-Control', 'public, max-age=3600');
+  res.json(_releasesData);
 });
 
 startScheduler();

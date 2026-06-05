@@ -1,0 +1,17 @@
+{
+  "releases": [
+    {
+      "version": "1.1.0",
+      "date": "2026-06-04",
+      "title": "Push Notifications & PWA",
+      "features": [
+        "Install the app to your home screen for a native app experience",
+        "Schedule stays available offline after the first visit",
+        "Subscribe to individual games with the bell icon",
+        "Get notified 15 minutes before tip-off",
+        "Receive final score alerts when games end — even with the app closed",
+        "Background score polling keeps results current automatically"
+      ]
+    }
+  ]
+}
