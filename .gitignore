@@ -1,3 +1,7 @@
 node_modules/
 events.db
 secrets.env
+*.mmdb
+memory/
+no
+", r*
