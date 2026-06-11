@@ -1552,11 +1552,9 @@ main {
   border: 3px solid var(--border);
   border-top-color: var(--maroon);
   border-radius: 50%;
-  animation: gm-spin 0.7s linear infinite;
+  animation: spin 0.7s linear infinite;
   margin: 60px auto;
 }
-
-@keyframes gm-spin { to { transform: rotate(360deg); } }
 
 /* Header */
 .gm-header {
