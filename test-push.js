@@ -6,21 +6,10 @@
 //   node test-push.js final <eventId>
 //   node test-push.js bg-poll
 
-const path = require('path');
-const fs = require('fs');
+const { loadSecretsFallback } = require('./lib/env');
 
-// Load secrets.env the same way server.js does
-if (!process.env.VAPID_PUBLIC_KEY) {
-  const secretsPath = path.join(process.env.HOME || '/root', 'projects/unifi-scripts/secrets.env');
-  try {
-    const lines = fs.readFileSync(secretsPath, 'utf8').split('\n');
-    for (const line of lines) {
-      const m = line.match(/^([A-Z_]+)=(.+)$/);
-      if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim();
-    }
-  } catch {
-    console.warn('[test-push] secrets.env not found — VAPID keys must already be in environment');
-  }
+if (!loadSecretsFallback()) {
+  console.warn('[test-push] secrets.env not found — VAPID keys must already be in environment');
 }
 
 const db = require('./db');

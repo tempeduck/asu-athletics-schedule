@@ -1,5 +1,6 @@
 const fetch = require('node-fetch');
 const { upsertMany } = require('./db');
+const { USER_AGENT } = require('./lib/constants');
 
 const FEED_URL = 'https://sundevils.com/feeds/json/node/wmt_events';
 
@@ -66,7 +67,7 @@ function parseEvent(raw) {
 async function fetchAndStore() {
   console.log(`[fetcher] Fetching from ${FEED_URL}`);
   const res = await fetch(FEED_URL, {
-    headers: { 'User-Agent': 'ASU-Athletics-Calendar/1.0' },
+    headers: { 'User-Agent': USER_AGENT },
     timeout: 30000,
   });
 

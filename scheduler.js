@@ -3,6 +3,7 @@ const { fetchAndStore } = require('./fetcher');
 const { fetchAndStoreScores, fetchAndStoreLiveScores } = require('./scores');
 const { getEventCount, getEventsPendingPush, markPushSent, cleanupExpiredSubscriptions, getGameSubscribers, getGameSubscribersForType, getEndedGamesWithSubscribers, getActiveGameWindows } = require('./db');
 const { geocodeAllMissing } = require('./geocoder');
+const push = require('./push');
 
 // ── Cron job schedule ──────────────────────────────────────────────────────────
 //
@@ -48,15 +49,9 @@ function startScheduler() {
       const { fetched, written, scoreChanges } = await fetchAndStoreLiveScores();
       console.log(`[bg-poll] Fetched ${fetched} game(s), wrote ${written} DB update(s)`);
       if (scoreChanges.length) {
-        let push;
-        try { push = require('./push'); } catch (err) {
-          console.error('[bg-poll] push module load failed:', err.message);
-        }
-        if (push) {
-          for (const change of scoreChanges) {
-            const subs = getGameSubscribersForType(change.eventId, 'score_update');
-            if (subs.length) await push.sendScoreUpdateAlert(change, subs);
-          }
+        for (const change of scoreChanges) {
+          const subs = getGameSubscribersForType(change.eventId, 'score_update');
+          if (subs.length) await push.sendScoreUpdateAlert(change, subs);
         }
       }
     } catch (err) {
@@ -85,10 +80,6 @@ function startScheduler() {
 
   // Every 5 minutes during game hours: send game-start push notifications
   cron.schedule('*/5 8-23 * * *', async () => {
-    let push;
-    try { push = require('./push'); } catch (err) {
-      console.error('[scheduler] push module load failed:', err.message); return;
-    }
     try {
       const events = getEventsPendingPush();
       for (const event of events) {
@@ -109,10 +100,6 @@ function startScheduler() {
   // until the nightly sync runs — this is a known limitation of the frontend-dependent
   // score writing approach.
   cron.schedule('*/3 8-23 * * *', async () => {
-    let push;
-    try { push = require('./push'); } catch (err) {
-      console.error('[scheduler] push module load failed:', err.message); return;
-    }
     try {
       const ended = getEndedGamesWithSubscribers();
       for (const event of ended) {

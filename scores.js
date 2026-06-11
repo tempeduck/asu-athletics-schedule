@@ -1,5 +1,7 @@
 const fetch = require('node-fetch');
 const { updateScore, updateLiveScore, upsertESPNEvent, queryEvents, updateGameStatus } = require('./db');
+const { opponentFromTitle } = require('./lib/opponent');
+const { USER_AGENT } = require('./lib/constants');
 
 const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports';
 
@@ -34,7 +36,7 @@ function getSeason(fallSport) {
 async function fetchESPNSchedule(espnPath, teamId, season) {
   const url = `${ESPN_BASE}/${espnPath}/teams/${teamId}/schedule?season=${season}`;
   const res = await fetch(url, {
-    headers: { 'User-Agent': 'ASU-Athletics-Calendar/1.0' },
+    headers: { 'User-Agent': USER_AGENT },
     timeout: 15000,
   });
   if (!res.ok) throw new Error(`ESPN HTTP ${res.status}`);
@@ -72,17 +74,6 @@ function extractScore(espnEvent) {
   };
 }
 
-function opponentFromTitle(title) {
-  const clean = title.replace(/^[^:]+:\s*/i, '');
-  const vsM = clean.match(/arizona\s+state\s+vs\.?\s+(.+)/i);
-  if (vsM) return vsM[1].trim().toLowerCase();
-  const asuAtM = clean.match(/arizona\s+state\s+at\s+(.+)/i);
-  if (asuAtM) return asuAtM[1].trim().toLowerCase();
-  const oppAtM = clean.match(/^(.+?)\s+at\s+arizona\s+state/i);
-  if (oppAtM) return oppAtM[1].trim().toLowerCase();
-  return null;
-}
-
 function opponentMatches(dbOpp, espnDisplay, espnAbbr) {
   if (!dbOpp) return false;
   if (espnAbbr && dbOpp.includes(espnAbbr)) return true;
@@ -102,7 +93,7 @@ function findDBMatch(scoreData, dbEvents, espnDate) {
   if (sameDay.length === 1) return sameDay[0];
 
   const withOpp = sameDay.filter(db => {
-    const dbOpp = opponentFromTitle(db.title || '');
+    const dbOpp = opponentFromTitle(db.title, { lowercase: true });
     return opponentMatches(dbOpp, scoreData.espnOppDisplay, scoreData.espnOppAbbr);
   });
   if (withOpp.length === 1) return withOpp[0];
@@ -161,7 +152,7 @@ function buildESPNEvent(espnEvent, sport, scoreData) {
 async function fetchLiveScoreboard(espnPath) {
   const url = `${ESPN_BASE}/${espnPath}/scoreboard`;
   const res = await fetch(url, {
-    headers: { 'User-Agent': 'ASU-Athletics-Calendar/1.0' },
+    headers: { 'User-Agent': USER_AGENT },
     timeout: 15000,
   });
   if (!res.ok) throw new Error(`ESPN HTTP ${res.status}`);
@@ -361,7 +352,7 @@ function buildSeriesTournament(group, summaries) {
 async function fetchPoolStandings(espnPath) {
   const url = `${ESPN_BASE}/${espnPath}/scoreboard?groups=50`;
   const res = await fetch(url, {
-    headers: { 'User-Agent': 'ASU-Athletics-Calendar/1.0' },
+    headers: { 'User-Agent': USER_AGENT },
     timeout: 10000,
   });
   if (!res.ok) return null;
@@ -418,7 +409,7 @@ async function buildTournaments(games) {
       try {
         const url = `${ESPN_BASE}/${cfg.espnPath}/summary?event=${g.espnEventId}`;
         const res = await fetch(url, {
-          headers: { 'User-Agent': 'ASU-Athletics-Calendar/1.0' },
+          headers: { 'User-Agent': USER_AGENT },
           timeout: 10000,
         });
         if (res.ok) summaries.push({ gameId: g.espnEventId, data: await res.json() });
@@ -477,18 +468,6 @@ async function detectActiveTournaments() {
     return m ? m[0].replace(/\s+/g, ' ').trim() : `${sport} Tournament`;
   }
 
-  function oppNameFromTitle(title) {
-    if (!title) return 'Opponent';
-    const clean = title.replace(/^[^:]+:\s*/i, '');
-    const vsM = clean.match(/arizona\s+state\s+vs\.?\s+(.+)/i);
-    if (vsM) return vsM[1].trim();
-    const asuAtM = clean.match(/arizona\s+state\s+at\s+(.+)/i);
-    if (asuAtM) return asuAtM[1].trim();
-    const oppAtM = clean.match(/^(.+?)\s+at\s+arizona\s+state/i);
-    if (oppAtM) return oppAtM[1].trim();
-    return 'Opponent';
-  }
-
   const groups = {};
   for (const event of candidates) {
     const name = deriveTournamentName(event.sport, event);
@@ -513,7 +492,7 @@ async function detectActiveTournaments() {
       asuScore: event.asu_score || null,
       oppScore: event.opp_score || null,
       asuWinner: event.result === 'W',
-      oppName: oppNameFromTitle(event.title),
+      oppName: opponentFromTitle(event.title, { fallback: 'Opponent' }),
       oppLogo: event.opponent_logo || null,
       oppAbbr: '',
       situation: event.result ? `Final: ${event.asu_score}–${event.opp_score}` : '',

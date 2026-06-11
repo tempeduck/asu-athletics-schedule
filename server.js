@@ -1,6 +1,5 @@
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const fetch = require('node-fetch');
@@ -9,18 +8,10 @@ const { fetchAndStore } = require('./fetcher');
 const { geocodeAllMissing } = require('./geocoder');
 const { fetchLiveGames, TOURNAMENT_RE } = require('./scores');
 const { startScheduler } = require('./scheduler');
+const { loadSecretsFallback } = require('./lib/env');
+const { USER_AGENT, NCAA_USER_AGENT, SITE_HOST } = require('./lib/constants');
 
-// ── Load VAPID env from secrets.env if not already set ───────────────────────
-if (!process.env.VAPID_PUBLIC_KEY) {
-  const secretsPath = path.join(process.env.HOME || '/root', 'projects/unifi-scripts/secrets.env');
-  try {
-    const lines = fs.readFileSync(secretsPath, 'utf8').split('\n');
-    for (const line of lines) {
-      const m = line.match(/^([A-Z_]+)=(.+)$/);
-      if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim();
-    }
-  } catch {}
-}
+loadSecretsFallback();
 
 const { version: APP_VERSION } = require('./package.json');
 const _releasesData = require('./releases.json');
@@ -63,7 +54,7 @@ async function getNcaaConfig() {
   if (_ncaaConfigCache.data && _ncaaConfigCache.expiresAt > now) return _ncaaConfigCache.data;
 
   const r = await fetch('https://www.ncaa.com/brackets/baseball/d1/2026', {
-    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ASU-Athletics-Calendar/1.0)' },
+    headers: { 'User-Agent': NCAA_USER_AGENT },
     timeout: 15000,
   });
   if (!r.ok) throw new Error(`NCAA bracket page HTTP ${r.status}`);
@@ -126,7 +117,7 @@ async function _fetchEspnScoreboard(yyyymmdd) {
   if (cached && cached.expiresAt > now) return cached.data;
 
   const url = `https://site.api.espn.com/apis/site/v2/sports/baseball/college-baseball/scoreboard?dates=${yyyymmdd}`;
-  const r = await fetch(url, { headers: { 'User-Agent': 'ASU-Athletics-Calendar/1.0' }, timeout: 10000 });
+  const r = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, timeout: 10000 });
   if (!r.ok) throw new Error(`ESPN scoreboard HTTP ${r.status}`);
   const events = (await r.json()).events || [];
 
@@ -157,7 +148,7 @@ function _matchNcaaToEspnFull(ncaaGame, espnEvents, sectionTitle) {
 }
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Security headers
 app.use(helmet({
@@ -331,7 +322,7 @@ app.get('/api/feedback/unread-count', generalLimit, (req, res) => {
 app.get('/api/admin/feedback', adminLimit, (req, res) => {
   try {
     const origin = req.headers['origin'] || req.headers['referer'] || '';
-    if (!origin.includes('asu.dikaiaserver.com')) {
+    if (!origin.includes(SITE_HOST)) {
       console.warn('[api] /api/admin/feedback accessed from unexpected origin:', origin);
     }
     const limit = Math.min(parseInt(req.query.limit) || 50, 200);
@@ -406,7 +397,7 @@ app.get('/api/game/:espnEventId', generalLimit, async (req, res) => {
   try {
     const url = `https://site.api.espn.com/apis/site/v2/sports/${slug}/summary?event=${espnEventId}`;
     const r = await fetch(url, {
-      headers: { 'User-Agent': 'ASU-Athletics-Calendar/1.0' },
+      headers: { 'User-Agent': USER_AGENT },
       timeout: 10000,
     });
     if (!r.ok) return res.status(502).json({ error: 'ESPN unavailable' });
@@ -443,7 +434,7 @@ async function _ncaaFindAsuSection(config) {
     const vars = encodeURIComponent(JSON.stringify({ championshipId: config.championshipId, sectionId }));
     const url = `${config.gqlHost}/?operationName=GetBracketSectionById_ncaa&extensions=${ext}&variables=${vars}`;
     const r = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ASU-Athletics-Calendar/1.0)' },
+      headers: { 'User-Agent': NCAA_USER_AGENT },
       timeout: 10000,
     });
     if (!r.ok) return null;
@@ -465,7 +456,7 @@ async function _ncaaFindAsuSection(config) {
     const ext = encodeURIComponent(JSON.stringify({ persistedQuery: { version: 1, sha256Hash: sha } }));
     const vars = encodeURIComponent(JSON.stringify(config.variables));
     const url = `${config.gqlHost}/?operationName=GetBracketChampionship_ncaa&extensions=${ext}&variables=${vars}`;
-    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ASU-Athletics-Calendar/1.0)' }, timeout: 15000 });
+    const r = await fetch(url, { headers: { 'User-Agent': NCAA_USER_AGENT }, timeout: 15000 });
     if (r.ok) {
       const data = await r.json();
       const games = data?.data?.championshipGames || [];
@@ -525,7 +516,7 @@ app.get('/api/ncaa/bracket/:sectionId', liveLimit, async (req, res) => {
     const url = `${config.gqlHost}/?operationName=GetBracketSectionById_ncaa&extensions=${ext}&variables=${vars}`;
 
     const r = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ASU-Athletics-Calendar/1.0)' },
+      headers: { 'User-Agent': NCAA_USER_AGENT },
       timeout: 15000,
     });
     if (!r.ok) throw new Error(`NCAA GraphQL HTTP ${r.status}`);
@@ -608,7 +599,7 @@ app.get('/api/events.ics', generalLimit, (req, res) => {
 
       const fmt = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 
-      const uid = `${e.id}@asu.dikaiaserver.com`;
+      const uid = `${e.id}@${SITE_HOST}`;
       const summary = e.title || 'ASU Athletics';
       const location = [e.location_name, e.venue_address, e.city, e.state]
         .filter(Boolean).join(', ');
@@ -669,7 +660,7 @@ app.get('/api/cf-stats', generalLimit, async (req, res) => {
   // Scoped to asu.dikaiaserver.com via requestHost filter — excludes all other
   // subdomains that also have beacons (jarvis, radar, etc.).
   // Counts only real browser page loads, not CDN requests or API calls.
-  const host = 'asu.dikaiaserver.com';
+  const host = SITE_HOST;
   const f    = `date_geq: "${startDate}", date_leq: "${endDate}", requestHost: "${host}"`;
   const query = `{
     viewer {
@@ -780,7 +771,11 @@ app.get('/api/releases', generalLimit, (req, res) => {
   res.json(_releasesData);
 });
 
-startScheduler();
+// DISABLE_SCHEDULER=1 lets a second verification instance run on an alternate
+// port without double-polling ESPN or double-sending push notifications.
+if (process.env.DISABLE_SCHEDULER !== '1') {
+  startScheduler();
+}
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[server] ASU Athletics Calendar running at http://0.0.0.0:${PORT}`);

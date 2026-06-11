@@ -1,5 +1,17 @@
 const webpush = require('web-push');
 const { getGameSubscribersForType, deletePushSubscription, getEventById, markFinalPushSent } = require('./db');
+const { opponentFromTitle } = require('./lib/opponent');
+const { SITE_ORIGIN } = require('./lib/constants');
+
+// VAPID env may be loaded after this module (loadSecretsFallback runs in the
+// entry point), so details are applied per-send rather than at require time.
+function ensureVapid() {
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT || 'mailto:admin@example.com',
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY,
+  );
+}
 
 const SPORT_EMOJI = {
   'Football':             '🏈',
@@ -39,7 +51,7 @@ function buildPayload(event) {
       title: `${emoji} ASU vs ${opponent} — Starting in 15 min`,
       body: [venue, timeStr ? `Kickoff at ${timeStr}` : ''].filter(Boolean).join(' · '),
       icon: '/icons/icon-192.png',
-      navigate: 'https://asu.dikaiaserver.com',
+      navigate: SITE_ORIGIN,
       app_badge: '1',
     },
   };
@@ -49,11 +61,7 @@ async function sendGameStartAlert(eventRow, subscribers) {
   if (!subscribers) subscribers = getGameSubscribersForType(eventRow.id, 'game_start');
   if (!subscribers.length) return;
 
-  webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT || 'mailto:admin@example.com',
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY,
-  );
+  ensureVapid();
 
   const payload = JSON.stringify(buildPayload(eventRow));
   let sent = 0;
@@ -79,17 +87,6 @@ async function sendGameStartAlert(eventRow, subscribers) {
   console.log(`[push] event ${eventRow.id}: sent=${sent} failed=${failed}`);
 }
 
-function _opponentFromTitle(title) {
-  const clean = (title || '').replace(/^[^:]+:\s*/i, '');
-  const vsM = clean.match(/arizona\s+state\s+vs\.?\s+(.+)/i);
-  if (vsM) return vsM[1].trim();
-  const asuAtM = clean.match(/arizona\s+state\s+at\s+(.+)/i);
-  if (asuAtM) return asuAtM[1].trim();
-  const oppAtM = clean.match(/^(.+?)\s+at\s+arizona\s+state/i);
-  if (oppAtM) return oppAtM[1].trim();
-  return 'Opponent';
-}
-
 async function sendGameFinalAlert(eventId) {
   const event = getEventById(eventId);
   if (!event) {
@@ -103,14 +100,10 @@ async function sendGameFinalAlert(eventId) {
     return;
   }
 
-  webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT || 'mailto:admin@example.com',
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY,
-  );
+  ensureVapid();
 
   const emoji = SPORT_EMOJI[event.sport] || '🏟️';
-  const opponent = _opponentFromTitle(event.title);
+  const opponent = opponentFromTitle(event.title, { fallback: 'Opponent' });
   const asuScore = event.asu_score ?? '?';
   const oppScore = event.opp_score ?? '?';
 
@@ -125,7 +118,7 @@ async function sendGameFinalAlert(eventId) {
       title: notifTitle,
       body,
       icon: '/icons/icon-192.png',
-      navigate: 'https://asu.dikaiaserver.com',
+      navigate: SITE_ORIGIN,
       app_badge: '0',
     },
   });
@@ -157,14 +150,10 @@ async function sendGameFinalAlert(eventId) {
 async function sendScoreUpdateAlert(change, subscribers) {
   if (!subscribers.length) return;
 
-  webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT || 'mailto:admin@example.com',
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY,
-  );
+  ensureVapid();
 
   const emoji = SPORT_EMOJI[change.sport] || '🏟️';
-  const opponent = _opponentFromTitle(change.title);
+  const opponent = opponentFromTitle(change.title, { fallback: 'Opponent' });
   const asuN = parseInt(change.asuScore, 10);
   const oppN = parseInt(change.oppScore, 10);
   const situation = !isNaN(asuN) && !isNaN(oppN)
@@ -178,7 +167,7 @@ async function sendScoreUpdateAlert(change, subscribers) {
 
   const payload = JSON.stringify({
     web_push: 8030,
-    notification: { title, body, icon: '/icons/icon-192.png', navigate: 'https://asu.dikaiaserver.com' },
+    notification: { title, body, icon: '/icons/icon-192.png', navigate: SITE_ORIGIN },
   });
 
   let sent = 0;
