@@ -9,8 +9,11 @@ const { geocodeAllMissing } = require('./geocoder');
 const { fetchLiveGames, TOURNAMENT_RE } = require('./scores');
 const { startScheduler } = require('./scheduler');
 const { loadSecretsFallback } = require('./lib/env');
-const { USER_AGENT, NCAA_USER_AGENT, SITE_HOST } = require('./lib/constants');
+const { USER_AGENT, SITE_HOST } = require('./lib/constants');
 const { ESPN_SPORT_SLUGS } = require('./lib/sports-config');
+const { TtlCache } = require('./lib/cache');
+const { buildIcsCalendar } = require('./lib/ical');
+const ncaa = require('./lib/ncaa');
 
 loadSecretsFallback();
 
@@ -18,112 +21,8 @@ const { version: APP_VERSION } = require('./package.json');
 const _releasesData = require('./releases.json');
 
 // ── In-memory caches ──────────────────────────────────────────────────────────
-const _espnGameCache       = new Map(); // espnEventId → {data, expiresAt}
-const _espnScoreboardCache = new Map(); // yyyymmdd    → {data, expiresAt}
-const _ncaaConfigCache     = { data: null, expiresAt: 0 };
-const _ncaaSectionCache    = { data: null, expiresAt: 0 };
-const _ncaaBracketCache    = new Map(); // sectionId  → {data, expiresAt}
-const _cfStatsCache        = new Map(); // `${days}`  → {data, expiresAt}
-
-// ── NCAA config scraper ───────────────────────────────────────────────────────
-
-async function getNcaaConfig() {
-  const now = Date.now();
-  if (_ncaaConfigCache.data && _ncaaConfigCache.expiresAt > now) return _ncaaConfigCache.data;
-
-  const r = await fetch('https://www.ncaa.com/brackets/baseball/d1/2026', {
-    headers: { 'User-Agent': NCAA_USER_AGENT },
-    timeout: 15000,
-  });
-  if (!r.ok) throw new Error(`NCAA bracket page HTTP ${r.status}`);
-  const html = await r.text();
-
-  // Find the bare-JSON <script> tag that contains drupalSettings with a "bracket" key
-  const scriptTagRe = /<script[^>]*>([\s\S]*?)<\/script>/gi;
-  let m;
-  let settings = null;
-  while ((m = scriptTagRe.exec(html)) !== null) {
-    const content = m[1].trim();
-    if (!content || !content.startsWith('{')) continue;
-    try {
-      const parsed = JSON.parse(content);
-      if (parsed?.bracket) { settings = parsed; break; }
-    } catch {}
-  }
-  if (!settings?.bracket) throw new Error('drupalSettings bracket not found in NCAA page');
-
-  const { bracket } = settings;
-  const shas = bracket.querySHAs;
-  const variables = typeof bracket.variables === 'string' ? JSON.parse(bracket.variables) : bracket.variables;
-  const gqlEnv = bracket.gqlEnv || 'prod';
-  const gqlHost = `https://sdata${gqlEnv}.ncaa.com`;
-  const championshipId = variables.championshipId;
-  // Only keep Regional sections (sectionId < 200) for ASU search fallback
-  const regionalSections = (bracket.sections || []).filter(s => s.sectionId < 200).map(s => s.sectionId);
-
-  const config = { gqlHost, shas, variables, championshipId, regionalSections };
-  _ncaaConfigCache.data = config;
-  _ncaaConfigCache.expiresAt = now + 6 * 60 * 60 * 1000;
-  console.log(`[ncaa] Config loaded: championshipId=${championshipId}, gqlHost=${gqlHost}, sections=${regionalSections.length}`);
-  return config;
-}
-
-function _ncaaNameWords(name) {
-  // Extract first 1-2 significant words from an NCAA team nameShort
-  // "Arizona St." → ["Arizona"], "South Dakota St." → ["South", "Dakota"], "Ole Miss" → ["Ole", "Miss"]
-  return (name || '').replace(/\./g, '').split(/\s+/).filter(w => w.length > 1).slice(0, 2);
-}
-
-function matchNcaaToEspn(ncaaGame, liveGames) {
-  if (!ncaaGame.startTimeEpoch) return null;
-  return liveGames.find(g => {
-    if (!g.espnEventId) return false;
-    if (Math.abs((g.startTime || 0) - ncaaGame.startTimeEpoch) >= 300) return false;
-    const haystack = `${g.title || ''} ${g.oppName || ''}`.toLowerCase();
-    return (ncaaGame.teams || []).some(t => {
-      const words = _ncaaNameWords(t.nameShort);
-      return words.length > 0 && words.every(w => haystack.includes(w.toLowerCase()));
-    });
-  })?.espnEventId ?? null;
-}
-
-// Fetch the full ESPN college-baseball scoreboard for a given date (YYYYMMDD).
-// Past dates cached 24 h; today cached 60 s (games may still be live).
-async function _fetchEspnScoreboard(yyyymmdd) {
-  const now = Date.now();
-  const cached = _espnScoreboardCache.get(yyyymmdd);
-  if (cached && cached.expiresAt > now) return cached.data;
-
-  const url = `https://site.api.espn.com/apis/site/v2/sports/baseball/college-baseball/scoreboard?dates=${yyyymmdd}`;
-  const r = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, timeout: 10000 });
-  if (!r.ok) throw new Error(`ESPN scoreboard HTTP ${r.status}`);
-  const events = (await r.json()).events || [];
-
-  const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const ttl = yyyymmdd === todayStr ? 60_000 : 24 * 60 * 60 * 1000;
-  _espnScoreboardCache.set(yyyymmdd, { data: events, expiresAt: now + ttl });
-  return events;
-}
-
-// Match an NCAA bracket game to an ESPN event using the full scoreboard.
-// Uses section title (e.g., "Lincoln") from the ESPN game's notes field
-// to narrow to the right regional before doing time + team name matching.
-function _matchNcaaToEspnFull(ncaaGame, espnEvents, sectionTitle) {
-  if (!ncaaGame.startTimeEpoch) return null;
-  for (const event of espnEvents) {
-    const notes = (event.competitions?.[0]?.notes || []).map(n => n.headline || '').join(' ');
-    if (sectionTitle && !notes.toLowerCase().includes(sectionTitle.toLowerCase())) continue;
-    const eventTs = Math.floor(new Date(event.date).getTime() / 1000);
-    // Use 2-hour window: ESPN and NCAA may disagree on scheduled time (delays, rescheduling).
-    // The section-title filter keeps false positives negligible even with a wide window.
-    if (Math.abs(eventTs - ncaaGame.startTimeEpoch) >= 7200) continue;
-    const teams = (event.competitions?.[0]?.competitors || [])
-      .map(c => c.team?.displayName || '').join(' ').toLowerCase();
-    const words = (ncaaGame.teams || []).flatMap(t => _ncaaNameWords(t.nameShort));
-    if (words.length > 0 && words.some(w => teams.includes(w.toLowerCase()))) return event.id;
-  }
-  return null;
-}
+const espnGameCache = new TtlCache(); // espnEventId → ESPN summary JSON
+const cfStatsCache  = new TtlCache(); // `${days}`   → Cloudflare stats JSON
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -368,9 +267,8 @@ app.get('/api/game/:espnEventId', generalLimit, async (req, res) => {
     return res.status(400).json({ error: 'No ESPN box score for this sport' });
   }
 
-  const now = Date.now();
-  const cached = _espnGameCache.get(espnEventId);
-  if (cached && cached.expiresAt > now) return res.json(cached.data);
+  const cached = espnGameCache.get(espnEventId);
+  if (cached) return res.json(cached);
 
   try {
     const url = `https://site.api.espn.com/apis/site/v2/sports/${slug}/summary?event=${espnEventId}`;
@@ -382,7 +280,7 @@ app.get('/api/game/:espnEventId', generalLimit, async (req, res) => {
     const data = await r.json();
     const completed = data?.header?.competitions?.[0]?.status?.type?.completed === true;
     const ttl = completed ? 5 * 60 * 1000 : 30 * 1000;
-    _espnGameCache.set(espnEventId, { data, expiresAt: now + ttl });
+    espnGameCache.set(espnEventId, data, ttl);
     res.json(data);
   } catch (err) {
     console.error('[api] /api/game error:', err.message);
@@ -394,7 +292,7 @@ app.get('/api/game/:espnEventId', generalLimit, async (req, res) => {
 
 app.get('/api/ncaa/config', generalLimit, async (req, res) => {
   try {
-    const config = await getNcaaConfig();
+    const config = await ncaa.getNcaaConfig();
     res.json({ gqlHost: config.gqlHost, shas: config.shas, championshipId: config.championshipId });
   } catch (err) {
     console.error('[api] /api/ncaa/config error:', err.message);
@@ -404,72 +302,9 @@ app.get('/api/ncaa/config', generalLimit, async (req, res) => {
 
 // ── NCAA ASU section lookup ───────────────────────────────────────────────────
 
-async function _ncaaFindAsuSection(config) {
-  // Helper: search a section's games for ASU
-  async function searchSection(sectionId) {
-    const sha = config.shas.GetBracketSectionById_ncaa;
-    const ext = encodeURIComponent(JSON.stringify({ persistedQuery: { version: 1, sha256Hash: sha } }));
-    const vars = encodeURIComponent(JSON.stringify({ championshipId: config.championshipId, sectionId }));
-    const url = `${config.gqlHost}/?operationName=GetBracketSectionById_ncaa&extensions=${ext}&variables=${vars}`;
-    const r = await fetch(url, {
-      headers: { 'User-Agent': NCAA_USER_AGENT },
-      timeout: 10000,
-    });
-    if (!r.ok) return null;
-    const data = await r.json();
-    const games = data?.data?.championshipGames || [];
-    for (const g of games) {
-      for (const t of g.teams || []) {
-        if (t.seoname === 'arizona-st') {
-          return { sectionId: g.section?.sectionId ?? sectionId, sectionTitle: g.section?.title ?? 'Regional' };
-        }
-      }
-    }
-    return null;
-  }
-
-  // 1. Try GetBracketChampionship_ncaa first (works once full bracket is set)
-  try {
-    const sha = config.shas.GetBracketChampionship_ncaa;
-    const ext = encodeURIComponent(JSON.stringify({ persistedQuery: { version: 1, sha256Hash: sha } }));
-    const vars = encodeURIComponent(JSON.stringify(config.variables));
-    const url = `${config.gqlHost}/?operationName=GetBracketChampionship_ncaa&extensions=${ext}&variables=${vars}`;
-    const r = await fetch(url, { headers: { 'User-Agent': NCAA_USER_AGENT }, timeout: 15000 });
-    if (r.ok) {
-      const data = await r.json();
-      const games = data?.data?.championshipGames || [];
-      for (const g of games) {
-        for (const t of g.teams || []) {
-          if (t.seoname === 'arizona-st') {
-            return { sectionId: g.section?.sectionId, sectionTitle: g.section?.title };
-          }
-        }
-      }
-    }
-  } catch {}
-
-  // 2. Fallback: scan regional sections sequentially
-  console.log('[ncaa] Championship bracket empty — scanning regional sections for ASU');
-  for (const sid of (config.regionalSections || [])) {
-    try {
-      const found = await searchSection(sid);
-      if (found) { console.log(`[ncaa] ASU found in sectionId=${found.sectionId}`); return found; }
-    } catch {}
-  }
-  throw new Error('ASU not found in any regional section');
-}
-
 app.get('/api/ncaa/asu-section', generalLimit, async (req, res) => {
-  const now = Date.now();
-  if (_ncaaSectionCache.data && _ncaaSectionCache.expiresAt > now) {
-    return res.json(_ncaaSectionCache.data);
-  }
   try {
-    const config = await getNcaaConfig();
-    const result = await _ncaaFindAsuSection(config);
-    _ncaaSectionCache.data = result;
-    _ncaaSectionCache.expiresAt = now + 30 * 60 * 1000;
-    res.json(result);
+    res.json(await ncaa.getAsuSection());
   } catch (err) {
     console.error('[api] /api/ncaa/asu-section error:', err.message);
     res.status(502).json({ error: 'NCAA API unavailable' });
@@ -482,53 +317,11 @@ app.get('/api/ncaa/bracket/:sectionId', liveLimit, async (req, res) => {
   const sectionId = parseInt(req.params.sectionId, 10);
   if (isNaN(sectionId)) return res.status(400).json({ error: 'Invalid sectionId' });
 
-  const now = Date.now();
-  const cached = _ncaaBracketCache.get(sectionId);
-  if (cached && cached.expiresAt > now) return res.json(cached.data);
-
   try {
-    const config = await getNcaaConfig();
-    const sha = config.shas.GetBracketSectionById_ncaa;
-    const ext = encodeURIComponent(JSON.stringify({ persistedQuery: { version: 1, sha256Hash: sha } }));
-    const vars = encodeURIComponent(JSON.stringify({ championshipId: config.championshipId, sectionId }));
-    const url = `${config.gqlHost}/?operationName=GetBracketSectionById_ncaa&extensions=${ext}&variables=${vars}`;
-
-    const r = await fetch(url, {
-      headers: { 'User-Agent': NCAA_USER_AGENT },
-      timeout: 15000,
-    });
-    if (!r.ok) throw new Error(`NCAA GraphQL HTTP ${r.status}`);
-    const data = await r.json();
-    const games = data?.data?.championshipGames || [];
-
-    // Determine which dates are represented in this bracket (NCAA startDate: "MM/DD/YYYY")
-    const dateSet = new Set();
-    for (const g of games) {
-      if (g.startDate) {
-        const [m, d, y] = g.startDate.split('/');
-        if (y && m && d) dateSet.add(`${y}${m.padStart(2, '0')}${d.padStart(2, '0')}`);
-      }
-    }
-    // Also always include today so live games are found
-    dateSet.add(new Date().toISOString().slice(0, 10).replace(/-/g, ''));
-
-    // Fetch full ESPN scoreboards for those dates
-    const scoreboardEvents = [];
-    for (const yyyymmdd of dateSet) {
-      try { scoreboardEvents.push(...await _fetchEspnScoreboard(yyyymmdd)); } catch {}
-    }
-
-    const sectionTitle = games[0]?.section?.title || '';
-
-    // Live-games cross-ref (fast, real-time ASU games) + full scoreboard (all regional games)
-    let liveGames = [];
-    try { liveGames = (await fetchLiveGames()).games || []; } catch {}
-
-    const augmented = games.map(g => ({
-      ...g,
-      espnEventId: matchNcaaToEspn(g, liveGames) ?? _matchNcaaToEspnFull(g, scoreboardEvents, sectionTitle),
-    }));
-    _ncaaBracketCache.set(sectionId, { data: augmented, expiresAt: now + 60 * 1000 });
+    const augmented = await ncaa.getBracketSection(
+      sectionId,
+      async () => (await fetchLiveGames()).games || [],
+    );
     res.json(augmented);
   } catch (err) {
     console.error('[api] /api/ncaa/bracket error:', err.message);
@@ -542,67 +335,7 @@ app.get('/api/events.ics', generalLimit, (req, res) => {
     const { sport, season, game_type } = req.query;
     const events = queryEvents({ sport, season, game_type });
 
-    const escIcs = s => (s || '').replace(/[\\;,]/g, c => '\\' + c).replace(/\n/g, '\\n');
-
-    const foldLine = line => {
-      const bytes = Buffer.from(line, 'utf8');
-      if (bytes.length <= 75) return line;
-      const parts = [line.slice(0, 75)];
-      let pos = 75;
-      while (pos < line.length) {
-        parts.push(' ' + line.slice(pos, pos + 74));
-        pos += 74;
-      }
-      return parts.join('\r\n');
-    };
-
-    const lines = [
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'PRODID:-//ASU Sun Devil Athletics//Schedule//EN',
-      'CALSCALE:GREGORIAN',
-      'METHOD:PUBLISH',
-      'X-WR-CALNAME:ASU Sun Devil Athletics',
-      'X-WR-TIMEZONE:America/Phoenix',
-      'X-WR-CALDESC:Arizona State University athletics schedule',
-    ];
-
-    for (const e of events) {
-      if (!e.start_date) continue;
-
-      const dtStart = new Date(e.start_date * 1000);
-      const dtEnd   = e.end_date
-        ? new Date(e.end_date * 1000)
-        : new Date(e.start_date * 1000 + 3 * 60 * 60 * 1000);
-
-      const fmt = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-
-      const uid = `${e.id}@${SITE_HOST}`;
-      const summary = e.title || 'ASU Athletics';
-      const location = [e.location_name, e.venue_address, e.city, e.state]
-        .filter(Boolean).join(', ');
-      const description = [
-        e.sport      ? `Sport: ${e.sport}`                    : null,
-        e.game_type  ? `Type: ${e.game_type}`                  : null,
-        e.tv_network ? `TV: ${e.tv_network}`                   : null,
-        e.result     ? `Result: ${e.result} ${e.asu_score}-${e.opp_score}` : null,
-        e.ticket_url ? `Tickets: ${e.ticket_url}`              : null,
-      ].filter(Boolean).join('\n');
-
-      lines.push('BEGIN:VEVENT');
-      lines.push(foldLine(`UID:${uid}`));
-      lines.push(foldLine(`DTSTART:${fmt(dtStart)}`));
-      lines.push(foldLine(`DTEND:${fmt(dtEnd)}`));
-      lines.push(foldLine(`SUMMARY:${escIcs(summary)}`));
-      if (location)    lines.push(foldLine(`LOCATION:${escIcs(location)}`));
-      if (description) lines.push(foldLine(`DESCRIPTION:${escIcs(description)}`));
-      if (e.sport)     lines.push(foldLine(`CATEGORIES:${escIcs(e.sport)}`));
-      lines.push('END:VEVENT');
-    }
-
-    lines.push('END:VCALENDAR');
-
-    const body = lines.join('\r\n') + '\r\n';
+    const body = buildIcsCalendar(events);
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="asu-athletics.ics"');
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -627,12 +360,11 @@ app.get('/api/cf-stats', generalLimit, async (req, res) => {
 
   const days     = Math.min(Math.max(parseInt(req.query.days) || 7, 1), 90);
   const cacheKey = String(days);
-  const now      = Date.now();
-  const cached   = _cfStatsCache.get(cacheKey);
-  if (cached && cached.expiresAt > now) return res.json(cached.data);
+  const cached   = cfStatsCache.get(cacheKey);
+  if (cached) return res.json(cached);
 
   const endDate   = new Date().toISOString().slice(0, 10);
-  const startDate = new Date(now - (days - 1) * 86400000).toISOString().slice(0, 10);
+  const startDate = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10);
 
   // Cloudflare Web Analytics beacon data (rumPageloadEventsAdaptiveGroups).
   // Scoped to asu.dikaiaserver.com via requestHost filter — excludes all other
@@ -665,7 +397,7 @@ app.get('/api/cf-stats', generalLimit, async (req, res) => {
     });
     if (!cfRes.ok) return res.status(502).json({ error: `Cloudflare HTTP ${cfRes.status}` });
     const data = await cfRes.json();
-    _cfStatsCache.set(cacheKey, { data, expiresAt: now + 10 * 60 * 1000 }); // 10-min TTL
+    cfStatsCache.set(cacheKey, data, 10 * 60 * 1000); // 10-min TTL
     res.json(data);
   } catch (err) {
     console.error('[api] /api/cf-stats error:', err.message);
