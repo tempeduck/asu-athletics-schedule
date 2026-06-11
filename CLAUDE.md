@@ -8,29 +8,50 @@ Self-hosted ASU Sun Devil Athletics schedule web app running at **asu.dikaiaserv
 
 - **Host**: Ubuntu VM at 10.10.1.19, port 3000
 - **Project root**: `~/projects/asu-athletics-schedule/`
-- **Secrets**: `~/projects/secrets.env` — source at session start
+- **Secrets** (two files, both load-bearing — do not consolidate without an ops change):
+  - `~/projects/secrets.env` — CF_API_TOKEN / CF_ACCOUNT_ID; loaded by systemd (`EnvironmentFile=` in asu-cal.service)
+  - `~/projects/unifi-scripts/secrets.env` — VAPID_* push keys; loaded as a fallback by `lib/env.js`
 - **DB**: `events.db` (SQLite, gitignored)
 - **Service**: `asu-cal.service` systemd unit
 - **Live URL**: https://asu.dikaiaserver.com
+- **Verification knobs**: `PORT=3100 DISABLE_SCHEDULER=1 node server.js` runs a second instance against the live DB without cron jobs / double-pushes (never hit `/api/refresh` or `/api/geocode` on it)
 
 ## Project Structure
 
 ```
 asu-athletics-schedule/
-├── server.js          ← Express server, API routes
-├── fetcher.js         ← Nightly data fetch from ASU + ESPN
+├── server.js          ← Express server, thin API routes
+├── fetcher.js         ← Nightly data fetch from sundevils.com feed
 ├── geocoder.js        ← Venue geocoding (GeoLite2 mmdb, gitignored)
-├── scheduler.js       ← Cron jobs
-├── scores.js          ← Live score polling
+├── scheduler.js       ← Cron jobs (eager-requires push: broken push = boot failure)
+├── scores.js          ← ESPN scoreboard polling + schedule/score sync
 ├── db.js              ← SQLite helpers
 ├── push.js            ← Web push notifications
+├── lib/
+│   ├── env.js           ← secrets fallback loader (documents the two-file system)
+│   ├── constants.js     ← USER_AGENT, NCAA_USER_AGENT, SITE_HOST/ORIGIN
+│   ├── sports-config.js ← single source for sport slugs/configs/emoji/TOURNAMENT_RE
+│   ├── opponent.js      ← opponentFromTitle(title, {lowercase, fallback})
+│   ├── cache.js         ← TtlCache (evict-on-read TTL cache)
+│   ├── ical.js          ← buildIcsCalendar for /api/events.ics
+│   ├── ncaa.js          ← NCAA bracket scraping/GraphQL + ESPN matching + caches
+│   └── tournaments.js   ← bracket/series/pool tournament builders
 ├── scripts/           ← Utility scripts
-└── public/            ← Frontend (FullCalendar, Leaflet, vanilla JS)
+└── public/            ← Frontend (FullCalendar, Leaflet, vanilla JS — no build step)
+    ├── shared.js        ← loaded FIRST: esc/shortTitle/sportColor/logo maps + `store` localStorage wrapper
+    ├── filters.js       ← filter sidebar state, view switching, event modal
+    ├── game-modal.js    ← ESPN box-score modal (lazy-invoked via window.openGameDetailModal)
+    ├── calendar.js / live.js / map.js / pwa.js / whats-new.js / feedback.js
+    └── sw.js            ← service worker; bump CACHE_NAME whenever index.html changes
 ```
+
+**Frontend cache busting**: scripts load via `?v=N` query params in index.html. When you
+change a frontend file, bump its `?v=` AND bump `CACHE_NAME` in sw.js if index.html changed
+(`/` is precached cache-first; the controllerchange handler auto-reloads clients).
 
 ## Rules
 
-- Always use `~/projects/secrets.env` for credentials — never hardcode
+- Always use the secrets.env files for credentials — never hardcode (see Environment for which file holds what)
 - `GeoLite2-City.mmdb` is gitignored (64MB binary) — lives only on the server
 - `events.db` is gitignored — do not commit
 - Restart service after code changes: `sudo systemctl restart asu-cal`
@@ -47,3 +68,17 @@ asu-athletics-schedule/
 ## Active Handoff
 
 - [2026-06-06 (Claude Code)]: Added agent collaboration rules and initialized handoff log.
+- [2026-06-11 (Claude Code)]: Full-sweep behavior-preserving refactor, 8 commits (0da1fc1..HEAD).
+  Backend: new `lib/` modules (env, constants, opponent, sports-config, cache, ical, ncaa,
+  tournaments); server.js 787→~490 lines, scores.js 880→~550, fetchLiveGames decomposed with
+  side-effect order preserved; scheduler now fails fast if push module is broken; dead
+  getNextGame() removed. Frontend: new public/shared.js (dedup of esc/shortTitle/sportColor/
+  ESPN_LOGO_MAP + `store` localStorage wrapper) and public/game-modal.js (box score modal out
+  of filters.js, 905→~500 lines); live.js renders decomposed (output verified byte-identical
+  via vm harness); duplicate spin keyframes removed. Bumps: shared v1, filters v17, game-modal
+  v1, live v25, map v3, pwa v5, style v5, SW cache asu-cal-v6. Verified per phase on
+  PORT=3100 DISABLE_SCHEDULER=1 against /tmp/asu-refactor-baseline (events/ics byte-identical).
+  OPEN FOLLOW-UP (ops, deliberate non-change): VAPID keys live only in
+  ~/projects/unifi-scripts/secrets.env; copying the 3 VAPID lines into ~/projects/secrets.env
+  would make lib/env.js a pure safety net. Browser smoke test on a real device (esp. iOS PWA)
+  still recommended: all tabs, both modals, bell menu persistence, SW update to asu-cal-v6.

@@ -153,18 +153,31 @@ The app listens on port 3000 over HTTP. Terminate TLS upstream (Nginx Proxy Mana
 ## Project Structure
 
 ```
-server.js          Express app, API routes, ESPN/NCAA proxy, Cloudflare analytics proxy
+server.js          Express app, thin API routes
 db.js              SQLite schema, queries, upsert helpers, migrations
 fetcher.js         sundevils.com feed parser and DB writer
-scores.js          ESPN live score polling, postseason auto-insert, tournament detection
+scores.js          ESPN scoreboard polling, score sync, postseason auto-insert
+push.js            Web push notification senders
 geocoder.js        Nominatim geocoder for away/neutral venues
 scheduler.js       node-cron nightly fetch + score sync jobs
+lib/
+  env.js           Secrets fallback loader
+  constants.js     User-agent strings, site host/origin
+  sports-config.js Sport slugs, team configs, emoji map, tournament regex
+  opponent.js      Opponent-name extraction from event titles
+  cache.js         TTL cache used by server/ncaa modules
+  ical.js          iCalendar (.ics) feed builder
+  ncaa.js          NCAA bracket scraping + ESPN event matching
+  tournaments.js   Bracket/series/pool tournament builders
 public/
   index.html       Single-page shell + Cloudflare Web Analytics beacon
-  calendar.js      FullCalendar integration, list view, event modal
-  filters.js       Filter sidebar state
+  shared.js        Shared utils/constants + localStorage wrapper (loaded first)
+  calendar.js      FullCalendar integration, list view
+  filters.js       Filter sidebar state, view switching, event modal
+  game-modal.js    ESPN box-score modal
   live.js          Live score polling, game cards, bracket renderer
   map.js           Leaflet map view
+  pwa.js           Install banner, push subscription, bell menus
   stats.html       Self-contained analytics dashboard (Cloudflare RUM)
   style.css        Styles (Barlow Condensed + DM Sans, ASU palette)
   feedback.css     Feedback widget styles
