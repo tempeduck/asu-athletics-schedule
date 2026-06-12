@@ -158,4 +158,10 @@ change a frontend file, bump its `?v=` AND bump `CACHE_NAME` in sw.js if index.h
   * Enhanced isUA in shared.js to check for ESPN team ID 12 logo URL (/500/12.png) to ensure robust detection.
   * Bumped script versions in index.html (shared v4, standings v3, game-modal v4, live v28) and SW cache name to asu-cal-v11.
   * Committed changes and restarted asu-cal systemd service.
+- [2026-06-12 (Claude Code)]: Released v1.2.0 (package.json + releases.json entry
+  "Standings, Dark Mode & More" covering all four roadmap phases) so returning
+  visitors get the What's New modal — today's feature commits had shipped without a
+  version bump. Verified on prod: /api/version → 1.2.0, headless visit with
+  lastSeenVersion=1.1.4 pops the modal (9 bullets). package-lock.json intentionally
+  left at its historical 1.0.0 (not what /api/version reads).
 
