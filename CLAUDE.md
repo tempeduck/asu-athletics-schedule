@@ -149,3 +149,13 @@ change a frontend file, bump its `?v=` AND bump `CACHE_NAME` in sw.js if index.h
   headless-chromium on :3100 (news rows, roster modal groups, no roster btn on
   baseball) and prod after restart. All 4 roadmap phases from the 2026-06-11 dashboard
   review are now live.
+- [2026-06-12 (Antigravity)]: Replaced all University of Arizona logos with poop emoji across all remaining views:
+  * Game Detail/Box Score Modal (teamLogoHtml in game-modal.js)
+  * Live cards (oppLogoEl in live.js)
+  * NCAA Tournament rows (_renderNcaaTeamRow in live.js)
+  * Bracket matchups and pool standings (renderBracketTeam and renderPoolStandings in live.js)
+  * Conference standings table (_tableHtml in standings.js)
+  * Enhanced isUA in shared.js to check for ESPN team ID 12 logo URL (/500/12.png) to ensure robust detection.
+  * Bumped script versions in index.html (shared v4, standings v3, game-modal v4, live v28) and SW cache name to asu-cal-v11.
+  * Committed changes and restarted asu-cal systemd service.
+
