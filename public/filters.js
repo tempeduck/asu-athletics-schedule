@@ -310,6 +310,7 @@ function openEventModal(event) {
       startTime: event.start_date,
       location:  event.location_name || [event.city, event.state].filter(Boolean).join(', ') || null,
       tvNetwork: event.tv_network || null,
+      oppRank:   event.opp_rank || null,
     });
     return;
   }
@@ -359,6 +360,9 @@ function openEventModal(event) {
   }
   if (event.city || event.state) {
     rows.push(row('🏙️', 'Location', [event.city, event.state].filter(Boolean).join(', ')));
+  }
+  if (event.opp_rank) {
+    rows.push(row('🏅', 'Opponent', `<span class="rank-badge">#${event.opp_rank}</span> in latest poll`));
   }
   if (event.game_type) {
     rows.push(row('🏟️', 'Type', capitalize(event.game_type)));

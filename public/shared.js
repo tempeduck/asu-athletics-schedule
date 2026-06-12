@@ -48,6 +48,12 @@ function shortOppName(name) {
   return name.replace(/^(University of |The )/i, '');
 }
 
+// Poll rank badge ("#7") — single render path for list/calendar/live/modal.
+// Returns '' for unranked so callers can prefix unconditionally.
+function rankBadgeHTML(rank) {
+  return rank ? `<span class="rank-badge">#${esc(rank)}</span> ` : '';
+}
+
 function seasonLabel(val) {
   if (val === '2025')    return '2024–25';
   if (val === '2026')    return '2025–26';

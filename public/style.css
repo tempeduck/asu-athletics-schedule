@@ -1373,6 +1373,89 @@ main {
   font-weight: 600;
 }
 
+/* Poll rank badge (#7 next to opponent names) */
+
+.rank-badge {
+  display: inline-block;
+  font-size: 0.7em;
+  font-weight: 700;
+  background: var(--maroon);
+  color: var(--gold);
+  border-radius: 4px;
+  padding: 0 4px;
+  vertical-align: 8%;
+  line-height: 1.5;
+}
+
+/* Conference standings widget (Live tab) */
+
+.standings-widget .bracket-body {
+  padding: 0 0 12px;
+}
+
+.standings-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 16px 10px;
+}
+
+.standings-pill {
+  font-family: var(--font-body);
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 11px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.standings-pill:hover { color: var(--text); }
+
+.standings-pill.active {
+  background: var(--maroon);
+  border-color: var(--maroon);
+  color: #fff;
+}
+
+.standings-season {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding: 0 16px 8px;
+}
+
+.standings-note {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  padding: 8px 16px 12px;
+}
+
+.standings-scroll { overflow-x: auto; }
+
+.standings-pos {
+  color: var(--text-muted);
+  width: 28px;
+}
+
+.standings-team {
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.standings-team img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  vertical-align: -25%;
+  margin-right: 7px;
+}
+
 /* Series panel */
 
 .series-panel {

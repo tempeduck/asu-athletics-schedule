@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div class="fc-event-time">${info.timeText}</div>
         <div class="fc-event-title-container">
           ${sport ? `<div class="fc-event-sport">${sport}</div>` : ''}
-          <div class="fc-event-title fc-sticky">${info.event.title}</div>
+          <div class="fc-event-title fc-sticky">${rankBadgeHTML(raw?.opp_rank)}${info.event.title}</div>
           ${extraLine}
         </div>`;
       return { domNodes: [wrapper] };
@@ -159,6 +159,7 @@ async function renderListView() {
               startTime: e.start_date,
               location: e.location_name || [e.city, e.state].filter(Boolean).join(', ') || null,
               tvNetwork: e.tv_network || null,
+              oppRank: e.opp_rank || null,
             });
           } else {
             openEventModal(e);
@@ -223,7 +224,7 @@ function listEventHTML(e) {
     <div class="list-event-bar" style="background:${color}"></div>
     ${logoHTML}
     <div class="list-event-main">
-      <div class="list-event-title">${shortTitle(e.title)}${badges}</div>
+      <div class="list-event-title">${rankBadgeHTML(e.opp_rank)}${shortTitle(e.title)}${badges}</div>
       <div class="list-event-meta">${
         e.sport
           ? `<span style="font-weight:600;color:${color}">${e.sport}</span>`

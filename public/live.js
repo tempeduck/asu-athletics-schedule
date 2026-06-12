@@ -208,6 +208,8 @@ function _buildLiveSections(liveGames, upcomingGames, finalGames, tournaments, n
       </div>`;
   }
 
+  if (window.renderStandingsShell) html += window.renderStandingsShell();
+
   return html;
 }
 
@@ -226,6 +228,11 @@ function _afterRenderHooks(container, games, liveGames, upcomingGames, finalGame
     const rounds = bracketPlaceholder.querySelector('.ncaa-bracket-rounds');
     if (rounds) rounds.scrollLeft = 0;
     _loadNcaaBracket(bracketPlaceholder.dataset.sport || 'Baseball').catch(() => {});
+  }
+
+  // Async-load conference standings into the widget shell
+  if (container.querySelector('#standings-placeholder') && window.loadStandings) {
+    window.loadStandings();
   }
 
   // Start countdown after DOM insert
@@ -312,13 +319,13 @@ function _cardMatchupHtml(game) {
   return `<div class="live-card-matchup">
         <div class="live-card-team">
           ${asuLogoSvg}
-          <div class="live-card-team-name">Arizona State</div>
+          <div class="live-card-team-name">${rankBadgeHTML(game.asuRank)}Arizona State</div>
           ${asuScoreEl}
         </div>
         ${vsOrTime}
         <div class="live-card-team">
           ${oppLogoEl}
-          <div class="live-card-team-name">${esc(shortOppName(game.oppName))}</div>
+          <div class="live-card-team-name">${rankBadgeHTML(game.oppRank)}${esc(shortOppName(game.oppName))}</div>
           ${oppScoreEl}
         </div>
       </div>`;
@@ -882,7 +889,7 @@ function renderNextGameBlock(nextGame) {
     <div class="live-next-game">
       <div class="live-next-label">Next Game</div>
       <div class="live-next-title">${esc(shortTitle(nextGame.title))}</div>
-      <div class="live-next-sport">${esc(nextGame.sport)}${tournamentPill}</div>
+      <div class="live-next-sport">${esc(nextGame.sport)}${nextGame.oppRank ? ` <span class="rank-badge">vs #${esc(nextGame.oppRank)}</span>` : ''}${tournamentPill}</div>
       <div class="live-next-countdown" id="next-countdown">–</div>
       <div class="live-next-meta">
         ${nextGame.startTime ? `<span>${esc(formatGameDateTime(nextGame.startTime))}</span>` : ''}

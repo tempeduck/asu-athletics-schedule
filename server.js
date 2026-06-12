@@ -14,6 +14,7 @@ const { ESPN_SPORT_SLUGS, TOURNAMENT_RE } = require('./lib/sports-config');
 const { TtlCache } = require('./lib/cache');
 const { buildIcsCalendar } = require('./lib/ical');
 const ncaa = require('./lib/ncaa');
+const standings = require('./lib/standings');
 
 loadSecretsFallback();
 
@@ -84,6 +85,9 @@ app.get('/api/events', generalLimit, (req, res) => {
   try {
     const { sport, game_type, city, state, region, from, to, season } = req.query;
     const events = queryEvents({ sport, game_type, city, state, region, from, to, season });
+    // Rank annotation is non-blocking: a cold poll cache leaves this response
+    // un-annotated rather than stalling on ESPN (index warms in background).
+    standings.annotateEvents(events, { sinceTs: Math.floor(Date.now() / 1000) - 86400 });
     res.json(events);
   } catch (err) {
     console.error('[api] /api/events error:', err.message);
@@ -130,8 +134,10 @@ app.post('/api/refresh', adminLimit, async (req, res) => {
 app.get('/api/live', liveLimit, async (req, res) => {
   try {
     const { games, tournaments } = await fetchLiveGames();
+    standings.annotateGames(games);
     const nowTs = Math.floor(Date.now() / 1000);
     const nextRow = queryEvents({ from: nowTs })[0] ?? null;
+    if (nextRow) standings.annotateEvents([nextRow]);
     const nextGame = nextRow ? {
       id: nextRow.id,
       title: nextRow.title,
@@ -141,6 +147,7 @@ app.get('/api/live', liveLimit, async (req, res) => {
       tvNetwork: nextRow.tv_network,
       gameType: nextRow.game_type,
       opponent_logo: nextRow.opponent_logo,
+      oppRank: nextRow.opp_rank ?? null,
       isTournament: TOURNAMENT_RE.test(nextRow.title || '') ||
                     TOURNAMENT_RE.test(nextRow.badges || '') ||
                     TOURNAMENT_RE.test(nextRow.location_name || ''),
@@ -250,6 +257,19 @@ app.post('/api/geocode', adminLimit, async (req, res) => {
   } catch (err) {
     console.error('[api] /api/geocode error:', err.message);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Conference standings ──────────────────────────────────────────────────────
+
+app.get('/api/standings', generalLimit, async (req, res) => {
+  try {
+    const result = await standings.getStandings(req.query.sport);
+    if (!result) return res.status(400).json({ error: 'Unknown sport' });
+    res.json(result);
+  } catch (err) {
+    console.error('[api] /api/standings error:', err.message);
+    res.status(502).json({ error: 'ESPN unavailable' });
   }
 });
 

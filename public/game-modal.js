@@ -51,7 +51,7 @@ function _gmRenderFallback(container, fallback) {
   if (!fallback) { container.innerHTML = ''; return; }
   const hdr = `<div class="gm-header">
     <div class="gm-headline">${esc(fallback.sport || '')}</div>
-    <div style="font-size:1.1rem;font-weight:700;color:white;margin-bottom:8px;padding-right:36px">${esc(shortTitle(fallback.title || ''))}</div>
+    <div style="font-size:1.1rem;font-weight:700;color:white;margin-bottom:8px;padding-right:36px">${rankBadgeHTML(fallback.oppRank)}${esc(shortTitle(fallback.title || ''))}</div>
   </div>`;
   const rows = [];
   if (fallback.startTime) rows.push(`<div class="gm-fallback-row"><span class="gm-fallback-icon">📅</span><span class="gm-fallback-label">When</span><span class="gm-fallback-value">${esc(formatTs(fallback.startTime))}</span></div>`);
@@ -112,13 +112,13 @@ function _gmRenderStats(container, data, sport) {
       <div class="gm-scores">
         <div class="gm-team">
           ${asuTeam ? teamLogoHtml(asuTeam) : '<div class="gm-team-logo-placeholder">ASU</div>'}
-          <div class="gm-team-name">${esc(asuTeam?.team?.displayName || 'Arizona State')}</div>
+          <div class="gm-team-name">${rankBadgeHTML(asuTeam?.rank)}${esc(asuTeam?.team?.displayName || 'Arizona State')}</div>
           <div class="gm-score${asuWins ? ' gm-winner' : ''}">${esc(asuTeam?.score ?? '–')}</div>
         </div>
         <div class="gm-vs">–</div>
         <div class="gm-team">
           ${oppTeam ? teamLogoHtml(oppTeam) : '<div class="gm-team-logo-placeholder">OPP</div>'}
-          <div class="gm-team-name">${esc(oppTeam?.team?.displayName || 'Opponent')}</div>
+          <div class="gm-team-name">${rankBadgeHTML(oppTeam?.rank)}${esc(oppTeam?.team?.displayName || 'Opponent')}</div>
           <div class="gm-score${oppWins ? ' gm-winner' : ''}">${esc(oppTeam?.score ?? '–')}</div>
         </div>
       </div>

@@ -84,3 +84,21 @@ change a frontend file, bump its `?v=` AND bump `CACHE_NAME` in sw.js if index.h
   provides them directly; verified served public key matches). lib/env.js fallback to
   ~/projects/unifi-scripts/secrets.env is now a pure safety net. Backup at
   ~/projects/secrets.env.bak-2026-06-11.
+- [2026-06-12 (Claude Code)]: Feature roadmap phase 1 shipped: conference standings +
+  poll rank badges. New lib/standings.js (ESPN standings/rankings fetch, 1h/6h TtlCaches
+  with 5-min negative cache, non-blocking getRankIndexSync so cold caches never stall
+  /api/live or /api/events) and public/standings.js (collapsible Live-tab widget, sport
+  pills persisted in store). STANDINGS_CONFIG/RANKINGS_SLUGS in lib/sports-config.js —
+  group IDs are per-league; baseball/volleyball conference tables live on a child group
+  (group=26 child 44, group=90 child 51); softball/soccer have no ESPN standings; women's
+  soccer rankings use soccer/usa.ncaa.w.1 (NOT the summary slug). Rank badges merged
+  server-side: game.oppRank/asuRank in /api/live, event.opp_rank in /api/events (future
+  events only, 24h lookback). Fixed latent SW bug: /api/game was cache-first-forever, now
+  NETWORK_ONLY. Bumps: shared v2, standings v1 (new), filters v18, game-modal v2,
+  calendar v13, live v26, style v6, SW asu-cal-v7. Verified via curl + headless-chromium
+  smoke test on :3100 and on prod after restart. Approved roadmap for later phases:
+  phase 2 = play-by-play tab in game modal (ESPN summary already ships plays/scoringPlays,
+  currently ignored) + head-to-head from local DB; phase 3 = My Sports favorites, dark
+  mode, TV/ticket links on list cards; phase 4 = ESPN team news strip + rosters. Full plan:
+  ~/.claude/plans/review-the-dashboard-and-typed-otter.md. Pre-existing harmless 404 noticed:
+  fullcalendar index.global.min.css doesn't exist on jsdelivr (v6 injects styles via JS).
