@@ -164,4 +164,10 @@ change a frontend file, bump its `?v=` AND bump `CACHE_NAME` in sw.js if index.h
   version bump. Verified on prod: /api/version → 1.2.0, headless visit with
   lastSeenVersion=1.1.4 pops the modal (9 bullets). package-lock.json intentionally
   left at its historical 1.0.0 (not what /api/version reads).
+- [2026-06-12 (Claude Code)]: Hid the filter sidebar on the Live tab (user request —
+  Live is ESPN-scoreboard-driven and ignores every filter). setView toggles
+  body.live-active; CSS hides aside + the mobile .btn-filters-toggle under it, so
+  Live gets full width and other views are untouched. Bumps: filters v21, style v10,
+  SW asu-cal-v12. Verified headless on :3100 (desktop + 390px mobile, both
+  directions of the toggle) and prod after restart.
 

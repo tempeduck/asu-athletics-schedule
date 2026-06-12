@@ -491,6 +491,10 @@ function setView(view) {
   mapView.style.display  = 'none';
   [btnLive, btnCal, btnList, btnMap].forEach(b => b && b.classList.remove('active'));
 
+  // Live is ESPN-scoreboard-driven and ignores the filters — hide the
+  // sidebar (and its mobile toggle) there entirely.
+  document.body.classList.toggle('live-active', view === 'live');
+
   if (view === 'live') {
     if (liveView) liveView.style.display = 'block';
     btnLive && btnLive.classList.add('active');
