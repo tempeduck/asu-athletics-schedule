@@ -16,6 +16,7 @@ const { buildIcsCalendar } = require('./lib/ical');
 const ncaa = require('./lib/ncaa');
 const standings = require('./lib/standings');
 const { getHeadToHead } = require('./lib/h2h');
+const team = require('./lib/team');
 
 loadSecretsFallback();
 
@@ -270,6 +271,28 @@ app.get('/api/standings', generalLimit, async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error('[api] /api/standings error:', err.message);
+    res.status(502).json({ error: 'ESPN unavailable' });
+  }
+});
+
+// ── Team news & roster (ESPN) ─────────────────────────────────────────────────
+
+app.get('/api/news', generalLimit, async (req, res) => {
+  try {
+    res.json(await team.getNews());
+  } catch (err) {
+    console.error('[api] /api/news error:', err.message);
+    res.status(502).json({ error: 'ESPN unavailable' });
+  }
+});
+
+app.get('/api/roster', generalLimit, async (req, res) => {
+  try {
+    const result = await team.getRoster(req.query.sport);
+    if (!result) return res.status(400).json({ error: 'Unknown sport' });
+    res.json(result);
+  } catch (err) {
+    console.error('[api] /api/roster error:', err.message);
     res.status(502).json({ error: 'ESPN unavailable' });
   }
 });

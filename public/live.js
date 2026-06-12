@@ -209,6 +209,7 @@ function _buildLiveSections(liveGames, upcomingGames, finalGames, tournaments, n
   }
 
   if (window.renderStandingsShell) html += window.renderStandingsShell();
+  if (window.renderNewsShell) html += window.renderNewsShell();
 
   return html;
 }
@@ -230,9 +231,12 @@ function _afterRenderHooks(container, games, liveGames, upcomingGames, finalGame
     _loadNcaaBracket(bracketPlaceholder.dataset.sport || 'Baseball').catch(() => {});
   }
 
-  // Async-load conference standings into the widget shell
+  // Async-load conference standings + news into their widget shells
   if (container.querySelector('#standings-placeholder') && window.loadStandings) {
     window.loadStandings();
+  }
+  if (container.querySelector('#news-placeholder') && window.loadNews) {
+    window.loadNews();
   }
 
   // Start countdown after DOM insert

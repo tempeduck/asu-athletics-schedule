@@ -134,3 +134,18 @@ change a frontend file, bump its `?v=` AND bump `CACHE_NAME` in sw.js if index.h
   v3, filters v20, calendar v14, style v8, SW asu-cal-v9. Verified headless-chromium
   dark screenshots on :3100 + prod after restart. Phase 4 (final) next: ESPN team news
   strip on Live tab + per-sport rosters/leaders.
+- [2026-06-12 (Claude Code)]: Roadmap phase 4 shipped (ROADMAP COMPLETE): team news +
+  rosters. New lib/team.js + TEAM_CONFIG in sports-config (ASU teamId is per-league:
+  9 in most, 59 baseball, 471 softball; roster:false where ESPN data is junk — college
+  baseball rosters are 100 flat null-jersey entries; volleyball empty). GET /api/news
+  merges per-sport ESPN news feeds (15min TTL, deduped — league stories tag ASU in
+  several sports), GET /api/roster?sport= (24h TTL) handles both ESPN shapes (football's
+  grouped position buckets vs flat athletes[]). Frontend in standings.js (now the
+  general Live-tab-widgets module): "📰 Sun Devils News" collapsible widget below
+  standings (emoji + headline + relative time, links to ESPN), "👥 View roster" button
+  inside the standings table area for Football/MBB/WBB/Ice Hockey — opens roster in the
+  game-modal overlay chrome with grouped gm-stats tables. /api/news + /api/roster in SW
+  NETWORK_FIRST. Bumps: standings v2, live v27, style v9, SW asu-cal-v10. Verified
+  headless-chromium on :3100 (news rows, roster modal groups, no roster btn on
+  baseball) and prod after restart. All 4 roadmap phases from the 2026-06-11 dashboard
+  review are now live.

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'asu-cal-v9';
+const CACHE_NAME = 'asu-cal-v10';
 const OFFLINE_CHANNEL = 'asu-offline';
 
 // JS and CSS files are loaded with versioned query params (e.g. live.js?v=22).
@@ -21,7 +21,7 @@ const CDN_ORIGINS = [
   'fonts.gstatic.com',
 ];
 
-const NETWORK_FIRST_PATHS = ['/api/events', '/api/sports', '/api/locations', '/api/standings', '/api/h2h'];
+const NETWORK_FIRST_PATHS = ['/api/events', '/api/sports', '/api/locations', '/api/standings', '/api/h2h', '/api/news', '/api/roster'];
 
 const NETWORK_ONLY_PATHS = [
   '/api/live',
