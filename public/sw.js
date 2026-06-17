@@ -1,4 +1,4 @@
-const CACHE_NAME = 'asu-cal-v12';
+const CACHE_NAME = 'asu-cal-v13';
 const OFFLINE_CHANNEL = 'asu-offline';
 
 // JS and CSS files are loaded with versioned query params (e.g. live.js?v=22).

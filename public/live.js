@@ -1083,7 +1083,11 @@ window.renderLiveView = function() {
     }
   } else {
     container.innerHTML = '<div class="live-empty-state"><p>Loading…</p></div>';
-    // poll is in flight; when it resolves it will render via the DOM visibility check in pollLive
+    // No data yet — the initial poll may still be in flight, or it failed/returned
+    // a non-JSON interstitial (common in the first request right after a CF Access
+    // login). Kick an immediate poll rather than passively waiting up to
+    // POLL_INTERVAL for the next tick; pollLive renders once #live-view is visible.
+    pollLive();
   }
 };
 
