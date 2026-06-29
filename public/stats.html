@@ -15,7 +15,7 @@
   ────────────────────────────────────────────────────────────────────────────
 
   ── REQUIRED ENV VARS (/home/robert/projects/secrets.env) ───────────────────
-    CF_API_TOKEN=<token with Zone:Analytics:Read + Account:Analytics:Read>
+    CF_ANALYTICS_TOKEN=<token with Zone:Analytics:Read + Account:Analytics:Read>
     CF_ACCOUNT_ID=<Cloudflare account ID>
   ────────────────────────────────────────────────────────────────────────────
 -->
@@ -366,7 +366,7 @@ function showError(msg) {
   document.getElementById('kpi').innerHTML=`<div class="errc" style="grid-column:1/-1">
     <strong>Failed to load analytics</strong>
     <code>${esc(msg)}</code>
-    <p>Ensure CF_API_TOKEN has Account:Analytics:Read and CF_ACCOUNT_ID is set in secrets.env.</p>
+    <p>Ensure CF_ANALYTICS_TOKEN has Account:Analytics:Read and CF_ACCOUNT_ID is set in secrets.env.</p>
     <button class="rtbtn" onclick="doRefresh()">Retry</button>
   </div>`;
   ['chart','pages','devices','countries','browsers','referrers'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});

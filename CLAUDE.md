@@ -15,7 +15,7 @@ git tag (see `## Deploy / Promotion` below). Both run the same code; the schedul
 - **Host**: Oracle `speedtest-wan`, `ubuntu@170.9.227.11` (Ubuntu 24.04, arm64, 4 OCPU/24 GB), TZ America/Chicago
 - **Project root**: `/home/ubuntu/projects/asu-athletics-schedule/`
 - **Secrets** (single file, consolidated — Oracle has no unifi-scripts fallback):
-  `/home/ubuntu/projects/secrets.env` (chmod 600) holds CF_API_TOKEN, CF_ACCOUNT_ID,
+  `/home/ubuntu/projects/secrets.env` (chmod 600) holds CF_ANALYTICS_TOKEN, CF_ACCOUNT_ID,
   VAPID_* and others; loaded by systemd `EnvironmentFile=`. The `lib/env.js` fallback to
   `unifi-scripts/secrets.env` is a no-op here (VAPID already in env).
 - **Service**: `asu-cal.service` (User=ubuntu, ExecStart=`/usr/bin/node server.js`) — runs the scheduler
@@ -25,7 +25,7 @@ git tag (see `## Deploy / Promotion` below). Both run the same code; the schedul
 - **Host**: Ubuntu VM at 10.10.1.19, port 3000 (Claude Code runs here)
 - **Project root**: `~/projects/asu-athletics-schedule/`
 - **Secrets** (two files, both load-bearing here — do not consolidate without an ops change):
-  - `~/projects/secrets.env` — CF_API_TOKEN / CF_ACCOUNT_ID; loaded by systemd (`EnvironmentFile=` in asu-cal.service)
+  - `~/projects/secrets.env` — CF_ANALYTICS_TOKEN / CF_ACCOUNT_ID; loaded by systemd (`EnvironmentFile=` in asu-cal.service)
   - `~/projects/unifi-scripts/secrets.env` — VAPID_* push keys; loaded as a fallback by `lib/env.js`
 - **Service**: `asu-cal.service` — with drop-in `/etc/systemd/system/asu-cal.service.d/dev-no-scheduler.conf` setting `DISABLE_SCHEDULER=1` (NO cron, NO pushes). Refresh test data manually.
 - **Public path**: HA-add-on tunnel (`jarvis_tunnel_cf`) → NPM (10.10.1.40:80) → 10.10.1.19:3000, NPM proxy host id 25, behind CF Access (Allow Robert / Google OAuth).
