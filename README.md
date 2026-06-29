@@ -111,7 +111,7 @@ node server.js
 Required only for the `/stats` analytics dashboard:
 
 ```env
-CF_API_TOKEN=<Cloudflare token: Zone:Analytics:Read + Account:Analytics:Read>
+CF_ANALYTICS_TOKEN=<Cloudflare token: Zone:Analytics:Read + Account:Analytics:Read>
 CF_ACCOUNT_ID=<Cloudflare account ID>
 ```
 
@@ -145,7 +145,7 @@ The app listens on port 3000 over HTTP. Terminate TLS upstream (Nginx Proxy Mana
 ### Analytics setup
 
 1. In the Cloudflare dashboard, add the site to **Web Analytics** and paste the `<script>` beacon tag into `public/index.html` (already done for the reference deployment).
-2. Create an API token with **Zone → Analytics → Read** and **Account → Analytics → Read**. Set `CF_API_TOKEN` and `CF_ACCOUNT_ID` in `secrets.env` and restart the service.
+2. Create an API token with **Zone → Analytics → Read** and **Account → Analytics → Read**. Set `CF_ANALYTICS_TOKEN` and `CF_ACCOUNT_ID` in `secrets.env` and restart the service.
 3. Optionally protect `/stats` with **Cloudflare Zero Trust → Access → Applications → Self-hosted** (path: `/stats`). No auth code needed in the app.
 
 ---

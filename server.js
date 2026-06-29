@@ -410,12 +410,12 @@ app.get('/api/events.ics', generalLimit, (req, res) => {
 // ── Cloudflare Analytics proxy ────────────────────────────────────────────────
 
 app.get('/api/cf-stats', generalLimit, async (req, res) => {
-  const token     = process.env.CF_API_TOKEN || process.env.CF_TOKEN;
+  const token     = process.env.CF_ANALYTICS_TOKEN;
   const accountId = process.env.CF_ACCOUNT_ID;
   if (!token || !accountId) {
     return res.status(503).json({
       error: 'Stats not configured',
-      missing: [!token && 'CF_API_TOKEN', !accountId && 'CF_ACCOUNT_ID'].filter(Boolean),
+      missing: [!token && 'CF_ANALYTICS_TOKEN', !accountId && 'CF_ACCOUNT_ID'].filter(Boolean),
     });
   }
 
