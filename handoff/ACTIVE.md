@@ -75,7 +75,8 @@ Real-device push delivery remains unverified.
 
 **Oracle access path completed (2026-08-25, GPT-5):** Direct Oracle SSH can be rate-limited
 by sshd `MaxStartups`; the documented Tailscale path is now usable from this dev VM. Installed
-Tailscale 1.102.3 and enrolled the VM as `asu-dev-codex` with route/DNS/exit-node behavior
-disabled. Oracle is reachable directly at its Tailscale address. Verified Oracle's
+Tailscale 1.102.3 and enrolled the VM as `asu-dev-codex`; subnet-route acceptance and DNS
+acceptance remain disabled, while the VM now advertises approved IPv4/IPv6 exit-node routes.
+Oracle is reachable directly at its Tailscale address. Verified Oracle's
 `asu-cal.service` and `cloudflared.service` active, commit `4dcd633` / v1.4.0 running, the
 TV Media key present, and the public edge serving v1.4.0 plus `/api/tv/lineups` successfully.
