@@ -1,7 +1,7 @@
 const cron = require('node-cron');
 const { fetchAndStore } = require('./fetcher');
 const { fetchAndStoreScores, fetchAndStoreLiveScores } = require('./scores');
-const { getEventCount, getEventsPendingPush, markPushSent, cleanupExpiredSubscriptions, getGameSubscribers, getGameSubscribersForType, getEndedGamesWithSubscribers, getActiveGameWindows } = require('./db');
+const { getEventCount, getEventsPendingPush, getEventsPendingTvPush, markPushSent, markTvPushSent, cleanupExpiredSubscriptions, getGameSubscribers, getGameSubscribersForType, getEndedGamesWithSubscribers, getActiveGameWindows } = require('./db');
 const { geocodeAllMissing } = require('./geocoder');
 const push = require('./push');
 
@@ -92,7 +92,13 @@ function startScheduler() {
         await push.sendGameStartAlert(event, subscribers);
         markPushSent(event.id);
       }
-      if (events.length) console.log(`[scheduler] push: sent alerts for ${events.length} event(s)`);
+      const tvEvents = getEventsPendingTvPush();
+      for (const event of tvEvents) {
+        const subscribers = getGameSubscribersForType(event.id, 'tv_alert');
+        if (subscribers.length) await push.sendTvAlert(event, subscribers);
+        markTvPushSent(event.id);
+      }
+      if (events.length || tvEvents.length) console.log(`[scheduler] push: sent game alerts for ${events.length} event(s), TV alerts for ${tvEvents.length} event(s)`);
     } catch (err) {
       console.error('[scheduler] push tick failed:', err.message);
     }

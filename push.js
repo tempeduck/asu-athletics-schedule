@@ -3,6 +3,7 @@ const { getGameSubscribersForType, deletePushSubscription, getEventById, markFin
 const { opponentFromTitle } = require('./lib/opponent');
 const { SITE_ORIGIN } = require('./lib/constants');
 const { SPORT_EMOJI } = require('./lib/sports-config');
+const { findChannel } = require('./lib/tvmedia');
 
 // VAPID details are applied per-send rather than at require time so a missing
 // key surfaces as a caught send error, not a boot failure (scheduler.js
@@ -38,6 +39,24 @@ function buildPayload(event) {
   };
 }
 
+function buildTvPayload(event, channel) {
+  const emoji = SPORT_EMOJI[event.sport] || '🏟️';
+  const opponent = opponentFromTitle(event.title, { fallback: 'Opponent' });
+  const venue = event.location_name || '';
+  return {
+    web_push: 8030,
+    startTime: event.start_date || null,
+    notification: {
+      title: `${emoji} ASU vs ${opponent} — televised`,
+      body: [event.tv_network, channel ? `channel ${channel}` : '', venue].filter(Boolean).join(' · '),
+      icon: '/icons/icon-192.png',
+      navigate: SITE_ORIGIN,
+      app_badge: '1',
+      tag: `asu-tv-${event.id}`,
+    },
+  };
+}
+
 async function sendGameStartAlert(eventRow, subscribers) {
   if (!subscribers) subscribers = getGameSubscribersForType(eventRow.id, 'game_start');
   if (!subscribers.length) return;
@@ -66,6 +85,40 @@ async function sendGameStartAlert(eventRow, subscribers) {
   }
 
   console.log(`[push] event ${eventRow.id}: sent=${sent} failed=${failed}`);
+}
+
+async function sendTvAlert(eventRow, subscribers) {
+  if (!subscribers) subscribers = getGameSubscribersForType(eventRow.id, 'tv_alert');
+  if (!subscribers.length) return;
+
+  ensureVapid();
+  let sent = 0;
+  let failed = 0;
+  for (const sub of subscribers) {
+    try {
+      let channel = null;
+      try {
+        const prefs = sub.tv_preferences ? JSON.parse(sub.tv_preferences) : null;
+        if (prefs?.lineupId) channel = await findChannel(prefs.lineupId, eventRow.tv_network);
+      } catch (err) {
+        console.warn(`[push] TV channel lookup failed for event=${eventRow.id}: ${err.message}`);
+      }
+      const payload = JSON.stringify(buildTvPayload(eventRow, channel));
+      await webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        payload,
+      );
+      sent++;
+    } catch (err) {
+      failed++;
+      if (err.statusCode === 410) {
+        try { deletePushSubscription(sub.endpoint); } catch {}
+      } else {
+        console.error(`[push] TV alert send failed for endpoint ${sub.endpoint.slice(-20)}: ${err.message}`);
+      }
+    }
+  }
+  console.log(`[push] TV alert event=${eventRow.id}: sent=${sent} failed=${failed}`);
 }
 
 async function sendGameFinalAlert(eventId) {
@@ -174,4 +227,4 @@ async function sendScoreUpdateAlert(change, subscribers) {
   console.log(`[push] score-update event=${change.eventId} sent=${sent}`);
 }
 
-module.exports = { sendGameStartAlert, sendGameFinalAlert, sendScoreUpdateAlert };
+module.exports = { sendGameStartAlert, sendTvAlert, sendGameFinalAlert, sendScoreUpdateAlert, buildTvPayload };

@@ -16,6 +16,7 @@ const ncaa = require('./lib/ncaa');
 const standings = require('./lib/standings');
 const { getHeadToHead } = require('./lib/h2h');
 const team = require('./lib/team');
+const tvmedia = require('./lib/tvmedia');
 
 // All secrets (CF_*, ADMIN_TOKEN, VAPID_*) come from the systemd
 // EnvironmentFile (~/projects/secrets.env on both boxes). The old
@@ -516,6 +517,16 @@ app.get('/api/vapid-public-key', (req, res) => {
   res.json({ publicKey });
 });
 
+app.get('/api/tv/lineups', generalLimit, async (req, res) => {
+  try {
+    if (!process.env.TVMEDIA_API_KEY) return res.status(503).json({ error: 'TV lookup is not configured' });
+    res.json(await tvmedia.getLineups(req.query.postalCode));
+  } catch (err) {
+    console.error('[api] /api/tv/lineups error:', err.message);
+    res.status(400).json({ error: err.message.includes('required') ? err.message : 'TV lineup lookup failed' });
+  }
+});
+
 // Push endpoints are URLs this server will later POST to (via web-push) —
 // require https and a sane length so junk/internal URLs can't be registered.
 function isValidPushEndpoint(endpoint) {
@@ -526,14 +537,18 @@ function isValidPushEndpoint(endpoint) {
 
 app.post('/api/subscribe', generalLimit, (req, res) => {
   try {
-    const { endpoint, p256dh, auth, sportPrefs } = req.body ?? {};
+    const { endpoint, p256dh, auth, sportPrefs, tvPrefs } = req.body ?? {};
     if (!isValidPushEndpoint(endpoint)) return res.status(400).json({ error: 'valid https endpoint required' });
     // A brand-new subscription must carry its crypto keys; empty keys are only
     // allowed as a "keep existing" update (the prefs-only path from pwa.js).
     if (!hasPushSubscription(endpoint) && (!p256dh || !auth)) {
       return res.status(400).json({ error: 'p256dh and auth required for new subscriptions' });
     }
-    upsertPushSubscription(endpoint, p256dh, auth, Array.isArray(sportPrefs) ? sportPrefs : null);
+    const safeTvPrefs = tvPrefs && typeof tvPrefs === 'object' &&
+      tvmedia.validPostalCode(tvPrefs.postalCode) && tvmedia.validLineupId(tvPrefs.lineupId)
+      ? { postalCode: tvPrefs.postalCode.trim(), lineupId: tvPrefs.lineupId, providerName: String(tvPrefs.providerName || '').slice(0, 120) }
+      : (tvPrefs === null ? null : undefined);
+    upsertPushSubscription(endpoint, p256dh, auth, Array.isArray(sportPrefs) ? sportPrefs : null, safeTvPrefs);
     res.json({ success: true });
   } catch (err) {
     console.error('[api] /api/subscribe error:', err.message);
@@ -558,7 +573,7 @@ app.post('/api/subscribe/game', generalLimit, (req, res) => {
     const { endpoint, eventId, types } = req.body ?? {};
     if (!isValidPushEndpoint(endpoint) || !eventId) return res.status(400).json({ error: 'endpoint and eventId required' });
     if (!hasPushSubscription(endpoint)) return res.status(409).json({ error: 'push subscription not found — register device first' });
-    const validTypes = ['game_start', 'score_update', 'final_score'];
+    const validTypes = ['game_start', 'score_update', 'final_score', 'tv_alert'];
     const safeTypes = Array.isArray(types) ? types.filter(t => validTypes.includes(t)) : null;
     if (!safeTypes || !safeTypes.length) {
       removeGameSubscription(endpoint, eventId);

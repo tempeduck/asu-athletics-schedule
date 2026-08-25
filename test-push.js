@@ -3,6 +3,7 @@
 // Usage:
 //   node test-push.js list
 //   node test-push.js start <eventId>
+//   node test-push.js tv <eventId>
 //   node test-push.js final <eventId>
 //   node test-push.js bg-poll
 
@@ -48,7 +49,7 @@ async function main() {
     process.exit(0);
   }
 
-  if (cmd === 'start' || cmd === 'final') {
+  if (cmd === 'start' || cmd === 'tv' || cmd === 'final') {
     if (!eventId) {
       console.error(`Usage: node test-push.js ${cmd} <eventId>`);
       process.exit(1);
@@ -61,6 +62,8 @@ async function main() {
     console.log(`Event: ${event.title} (${event.sport})`);
     if (cmd === 'start') {
       await push.sendGameStartAlert(event);
+    } else if (cmd === 'tv') {
+      await push.sendTvAlert(event);
     } else {
       await push.sendGameFinalAlert(eventId);
     }
@@ -76,7 +79,7 @@ async function main() {
     process.exit(0);
   }
 
-  console.error('Usage: node test-push.js list | start <eventId> | final <eventId> | bg-poll');
+  console.error('Usage: node test-push.js list | start <eventId> | tv <eventId> | final <eventId> | bg-poll');
   process.exit(1);
 }
 

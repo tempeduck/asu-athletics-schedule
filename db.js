@@ -68,6 +68,7 @@ if (!existingCols.includes('result'))     db.exec('ALTER TABLE events ADD COLUMN
 if (!existingCols.includes('lat'))        db.exec('ALTER TABLE events ADD COLUMN lat REAL');
 if (!existingCols.includes('lng'))        db.exec('ALTER TABLE events ADD COLUMN lng REAL');
 if (!existingCols.includes('push_sent'))       db.exec('ALTER TABLE events ADD COLUMN push_sent INTEGER NOT NULL DEFAULT 0');
+if (!existingCols.includes('tv_push_sent'))    db.exec('ALTER TABLE events ADD COLUMN tv_push_sent INTEGER NOT NULL DEFAULT 0');
 if (!existingCols.includes('final_push_sent')) db.exec('ALTER TABLE events ADD COLUMN final_push_sent INTEGER NOT NULL DEFAULT 0');
 if (!existingCols.includes('game_status'))     db.exec('ALTER TABLE events ADD COLUMN game_status TEXT');
 
@@ -80,9 +81,11 @@ db.exec(`
     p256dh      TEXT NOT NULL,
     auth        TEXT NOT NULL,
     sport_prefs TEXT,
+    tv_preferences TEXT,
     created_at  INTEGER NOT NULL
   )
 `);
+try { db.exec('ALTER TABLE push_subscriptions ADD COLUMN tv_preferences TEXT'); } catch {}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS game_subscriptions (
@@ -377,20 +380,22 @@ function deleteFeedback(id) {
 // ── Push subscription helpers ─────────────────────────────────────────────────
 
 const _upsertPushSubStmt = db.prepare(`
-  INSERT INTO push_subscriptions (endpoint, p256dh, auth, sport_prefs, created_at)
-  VALUES (@endpoint, @p256dh, @auth, @sport_prefs, @created_at)
+  INSERT INTO push_subscriptions (endpoint, p256dh, auth, sport_prefs, tv_preferences, created_at)
+  VALUES (@endpoint, @p256dh, @auth, @sport_prefs, @tv_preferences, @created_at)
   ON CONFLICT(endpoint) DO UPDATE SET
     p256dh      = CASE WHEN excluded.p256dh != '' THEN excluded.p256dh ELSE p256dh END,
     auth        = CASE WHEN excluded.auth   != '' THEN excluded.auth   ELSE auth   END,
-    sport_prefs = excluded.sport_prefs
+    sport_prefs = CASE WHEN excluded.sport_prefs IS NOT NULL THEN excluded.sport_prefs ELSE sport_prefs END,
+    tv_preferences = CASE WHEN excluded.tv_preferences IS NOT NULL THEN excluded.tv_preferences ELSE tv_preferences END
 `);
 
-function upsertPushSubscription(endpoint, p256dh, auth, sportPrefs) {
+function upsertPushSubscription(endpoint, p256dh, auth, sportPrefs, tvPreferences) {
   _upsertPushSubStmt.run({
     endpoint,
     p256dh: p256dh || '',
     auth:   auth   || '',
     sport_prefs: sportPrefs != null ? JSON.stringify(sportPrefs) : null,
+    tv_preferences: tvPreferences != null ? JSON.stringify(tvPreferences) : null,
     created_at: Math.floor(Date.now() / 1000),
   });
 }
@@ -417,7 +422,7 @@ function removeGameSubscription(endpoint, eventId) {
 
 function getGameSubscribers(eventId) {
   return db.prepare(`
-    SELECT ps.endpoint, ps.p256dh, ps.auth, gs.notification_types
+    SELECT ps.endpoint, ps.p256dh, ps.auth, ps.tv_preferences, gs.notification_types
     FROM push_subscriptions ps
     JOIN game_subscriptions gs ON gs.subscription_id = ps.id
     WHERE gs.event_id = @event_id
@@ -460,8 +465,23 @@ function getEventsPendingPush() {
   `).all({ now, windowEnd });
 }
 
+function getEventsPendingTvPush() {
+  const now = Math.floor(Date.now() / 1000);
+  const windowEnd = now + 20 * 60;
+  return db.prepare(`
+    SELECT * FROM events
+    WHERE start_date >= @now AND start_date <= @windowEnd
+      AND tv_network IS NOT NULL AND trim(tv_network) != ''
+      AND tv_push_sent = 0
+  `).all({ now, windowEnd });
+}
+
 function markPushSent(eventId) {
   db.prepare('UPDATE events SET push_sent = 1 WHERE id = @id').run({ id: eventId });
+}
+
+function markTvPushSent(eventId) {
+  db.prepare('UPDATE events SET tv_push_sent = 1 WHERE id = @id').run({ id: eventId });
 }
 
 function getEventById(id) {
@@ -511,4 +531,4 @@ function hasPushSubscription(endpoint) {
   return !!db.prepare('SELECT 1 FROM push_subscriptions WHERE endpoint = @endpoint').get({ endpoint });
 }
 
-module.exports = { upsertMany, deleteStaleFutureFeedEvents, queryEvents, getSports, getSeasons, getDefaultSeason, getRecordsBySeason, getLocations, getEventCount, updateScore, updateLiveScore, upsertESPNEvent, getEventsNeedingGeocode, updateCoordinates, REGIONS, insertFeedback, getUnreadCount, getAllFeedback, markRead, markAllRead, deleteFeedback, upsertPushSubscription, deletePushSubscription, addGameSubscription, removeGameSubscription, getGameSubscribers, getGameSubscribersForType, cleanupExpiredSubscriptions, getEventsPendingPush, markPushSent, getEventById, updateGameStatus, markFinalPushSent, getEndedGamesWithSubscribers, getActiveGameWindows, hasPushSubscription };
+module.exports = { upsertMany, deleteStaleFutureFeedEvents, queryEvents, getSports, getSeasons, getDefaultSeason, getRecordsBySeason, getLocations, getEventCount, updateScore, updateLiveScore, upsertESPNEvent, getEventsNeedingGeocode, updateCoordinates, REGIONS, insertFeedback, getUnreadCount, getAllFeedback, markRead, markAllRead, deleteFeedback, upsertPushSubscription, deletePushSubscription, addGameSubscription, removeGameSubscription, getGameSubscribers, getGameSubscribersForType, cleanupExpiredSubscriptions, getEventsPendingPush, getEventsPendingTvPush, markPushSent, markTvPushSent, getEventById, updateGameStatus, markFinalPushSent, getEndedGamesWithSubscribers, getActiveGameWindows, hasPushSubscription };

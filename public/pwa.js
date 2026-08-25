@@ -51,9 +51,11 @@ function _initDebugPanel() {
 // ── Push subscription state ───────────────────────────────────────────────────
 
 const PUSH_ENDPOINT_KEY = 'asu-push-endpoint';
+const TV_PREFS_KEY = 'asu-tv-preferences';
 let _swRegistration = null;
 
 window.getPushEndpoint = () => store.get(PUSH_ENDPOINT_KEY) || null;
+function _getTvPrefs() { return store.getJSON(TV_PREFS_KEY, null); }
 
 async function _initPushSubscription() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
@@ -80,7 +82,7 @@ async function _initPushSubscription() {
     await fetch('/api/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ endpoint: sub.endpoint, p256dh, auth }),
+      body: JSON.stringify({ endpoint: sub.endpoint, p256dh, auth, tvPrefs: _getTvPrefs() }),
     });
     store.set(PUSH_ENDPOINT_KEY, sub.endpoint);
 
@@ -126,7 +128,7 @@ window.isGameSubscribed = function(eventId) {
 };
 
 // Bell HTML — generates a button with data-bell-event-id for delegation.
-function bellIconHTML(eventId, isFutureOrLive, tooltip, sport) {
+function bellIconHTML(eventId, isFutureOrLive, tooltip, sport, tvNetwork) {
   if (!isFutureOrLive) return '';
   const endpoint = window.getPushEndpoint();
   const types = endpoint ? (_gameSubscriptions.get(eventId) || []) : [];
@@ -136,7 +138,8 @@ function bellIconHTML(eventId, isFutureOrLive, tooltip, sport) {
   const title = disabled ? 'Enable notifications first'
     : (subscribed ? 'Notification options' : (tooltip || 'Get game alerts'));
   const sportAttr = sport ? ` data-bell-sport="${sport}"` : '';
-  return `<button class="bell-btn ${cls}" data-bell-event-id="${eventId}"${sportAttr} title="${title}" aria-label="${disabled ? 'Notifications disabled' : (subscribed ? 'Notification options' : 'Get game alerts')}">🔔</button>`;
+  const tvAttr = tvNetwork ? ` data-bell-tv="${esc(tvNetwork)}"` : '';
+  return `<button class="bell-btn ${cls}" data-bell-event-id="${eventId}"${sportAttr}${tvAttr} title="${title}" aria-label="${disabled ? 'Notifications disabled' : (subscribed ? 'Notification options' : 'Get game alerts')}">🔔</button>`;
 }
 
 window.bellIconHTML = bellIconHTML;
@@ -160,7 +163,7 @@ function _scoreUpdateLabel(sport) {
   return 'Score updates';
 }
 
-function _openBellMenu(bellEl, eventId, sport) {
+function _openBellMenu(bellEl, eventId, sport, tvNetwork) {
   _closeBellMenu();
 
   const endpoint = window.getPushEndpoint();
@@ -186,6 +189,10 @@ function _openBellMenu(bellEl, eventId, sport) {
       <input type="checkbox" data-btype="final_score"${ck('final_score')}>
       <span>Final score</span>
     </label>
+    ${tvNetwork ? `<label class="bell-menu-row">
+      <input type="checkbox" data-btype="tv_alert"${ck('tv_alert')}>
+      <span>TV broadcast<span class="bell-menu-hint">${esc(tvNetwork)} · before start</span></span>
+    </label>` : ''}
   `;
 
   document.body.appendChild(menu);
@@ -258,8 +265,9 @@ document.addEventListener('click', function(e) {
   }
   const eventId = bell.dataset.bellEventId;
   const sport   = bell.dataset.bellSport || '';
+  const tvNetwork = bell.dataset.bellTv || '';
   _pwaLog('log', `bell click: ${eventId} endpoint=${window.getPushEndpoint()?.slice(-12) ?? 'null'}`);
-  _openBellMenu(bell, eventId, sport);
+  _openBellMenu(bell, eventId, sport, tvNetwork);
 }, true); // capture phase
 
 // Close on outside click
@@ -410,8 +418,62 @@ function _renderNotifSection() {
   section.innerHTML = `
     <label class="group-label">Notifications <span style="font-size:0.7rem;font-weight:400;opacity:0.7">(enabled)</span></label>
     <p class="install-benefit">Tap the 🔔 bell on any game to pick alerts: game start, score updates, final score.</p>
+    <div class="tv-prefs">
+      <p class="install-benefit"><strong>Optional TV channel lookup</strong><br>Choose your ZIP code and provider to include your channel number in TV alerts.</p>
+      <div style="display:flex;gap:5px;margin:6px 0">
+        <input id="tv-zip" inputmode="numeric" maxlength="5" placeholder="ZIP code" value="${esc(_getTvPrefs()?.postalCode || '')}" style="min-width:0;flex:1">
+        <button id="tv-find" class="btn-enable-notif" style="padding:5px 8px">Find providers</button>
+      </div>
+      <select id="tv-provider" style="width:100%;margin:4px 0" disabled><option value="">Find providers first</option></select>
+      <button id="tv-save" class="btn-enable-notif" style="padding:5px 8px;margin-top:4px" disabled>Save TV provider</button>
+      <p id="tv-status" class="install-benefit" style="margin-top:5px"></p>
+      <a href="https://www.tvmedia.ca" target="_blank" rel="noopener" class="install-benefit">TV data by TV Media</a>
+    </div>
   `;
   sidebar.appendChild(section);
+  const zipEl = section.querySelector('#tv-zip');
+  const providerEl = section.querySelector('#tv-provider');
+  const findEl = section.querySelector('#tv-find');
+  const saveEl = section.querySelector('#tv-save');
+  const statusEl = section.querySelector('#tv-status');
+  let lineups = [];
+  const saved = _getTvPrefs();
+  if (saved?.providerName) statusEl.textContent = `Saved provider: ${saved.providerName}`;
+  findEl.addEventListener('click', async () => {
+    const zip = zipEl.value.trim();
+    if (!/^\d{5}$/.test(zip)) { statusEl.textContent = 'Enter a valid 5-digit ZIP code.'; return; }
+    findEl.disabled = true; statusEl.textContent = 'Finding providers…';
+    try {
+      const res = await fetch(`/api/tv/lineups?postalCode=${encodeURIComponent(zip)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      lineups = data;
+      providerEl.innerHTML = '<option value="">Select your provider</option>' + lineups.map(l =>
+        `<option value="${esc(l.lineupID)}">${esc([l.providerName, l.serviceArea, l.lineupType].filter(Boolean).join(' — '))}</option>`
+      ).join('');
+      providerEl.disabled = !lineups.length;
+      saveEl.disabled = true;
+      statusEl.textContent = lineups.length ? `${lineups.length} providers found.` : 'No providers found for that ZIP.';
+    } catch (err) {
+      statusEl.textContent = err.message;
+    } finally { findEl.disabled = false; }
+  });
+  providerEl.addEventListener('change', () => { saveEl.disabled = !providerEl.value; });
+  saveEl.addEventListener('click', async () => {
+    const selected = lineups.find(l => l.lineupID === providerEl.value);
+    if (!selected) return;
+    const prefs = { postalCode: zipEl.value.trim(), lineupId: selected.lineupID, providerName: selected.providerName };
+    store.setJSON(TV_PREFS_KEY, prefs);
+    const endpoint = window.getPushEndpoint();
+    if (!endpoint) { statusEl.textContent = `Saved ${selected.providerName}; enable notifications to sync it.`; return; }
+    saveEl.disabled = true; statusEl.textContent = 'Saving…';
+    try {
+      const res = await fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint, tvPrefs: prefs }) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      statusEl.textContent = `Saved ${selected.providerName}.`;
+    } catch (err) { statusEl.textContent = `Saved locally; server sync failed (${err.message}).`; }
+    finally { saveEl.disabled = false; }
+  });
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -441,8 +503,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       const eventId = bell.dataset.bellEventId;
       const sport   = bell.dataset.bellSport || '';
+      const tvNetwork = bell.dataset.bellTv || '';
       _pwaLog('log', `modal bell: eventId=${eventId}`);
-      _openBellMenu(bell, eventId, sport);
+      _openBellMenu(bell, eventId, sport, tvNetwork);
     });
   }
 
@@ -451,3 +514,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     await _initPushSubscription();
   }
 });
+
+window.addEventListener('pwa-push-ready', _renderNotifSection);

@@ -61,3 +61,14 @@ in Oracle's DB on each user's next visit.
 **Open / not yet verified (needs a real device):** authenticated `asu-dev` page render; PWA
 install + push on prod from a phone; full reboot-recovery test of the Oracle box.
 
+**TV broadcast notification option (2026-08-25, GPT-5):** Added a per-event `TV broadcast`
+notification option for events with a feed-provided `tv_network`. The scheduler sends it in
+the existing 0–20 minute pre-game window, only to subscribers selecting `tv_alert`; the push
+includes the opponent, local-device start time, channel, and venue. Added an independent
+`tv_push_sent` flag, API type validation, cache bumps, and `test-push.js tv <eventId>`.
+Added TV Media's free-plan integration: users can save ZIP/provider preferences, lineups are
+cached, each subscriber gets an independent channel lookup, and unmatched channels fall back
+to the network name. The configured key is `TVMEDIA_API_KEY` in the shared secrets file.
+Validated with JavaScript syntax checks, `git diff --check`, a real TV Media lookup (85281 / Cox
+ESPN2 → channel 32), an app API lookup, payload/DB checks, and a local headless render.
+Real-device push delivery remains unverified.

@@ -429,7 +429,7 @@ function openEventModal(event) {
   const nowTs = Math.floor(Date.now() / 1000);
   const isFuture = event.start_date && event.start_date > nowTs;
   if (isFuture && typeof window.bellIconHTML === 'function') {
-    actions += `<div class="modal-bell-row">${window.bellIconHTML(event.id, true, undefined, event.sport)}<span class="modal-bell-label">Get game alerts</span></div>`;
+    actions += `<div class="modal-bell-row">${window.bellIconHTML(event.id, true, undefined, event.sport, event.tv_network)}<span class="modal-bell-label">Get game alerts</span></div>`;
   }
   // Feed URLs: escape, and only link http(s) (blocks javascript: from a
   // compromised feed).

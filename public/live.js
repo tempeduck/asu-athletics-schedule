@@ -328,7 +328,7 @@ function _cardBellHtml(game) {
   const isFuture = game.startTime && game.startTime > nowTs;
   const bellTooltip = game.state === 'live' ? 'Notify me when this game ends' : 'Subscribe to this game';
   return game.dbEventId
-    ? window.bellIconHTML(game.dbEventId, isFuture || game.state === 'live', bellTooltip, game.sport)
+    ? window.bellIconHTML(game.dbEventId, isFuture || game.state === 'live', bellTooltip, game.sport, game.tvNetwork)
     : '';
 }
 
