@@ -72,3 +72,10 @@ to the network name. The configured key is `TVMEDIA_API_KEY` in the shared secre
 Validated with JavaScript syntax checks, `git diff --check`, a real TV Media lookup (85281 / Cox
 ESPN2 → channel 32), an app API lookup, payload/DB checks, and a local headless render.
 Real-device push delivery remains unverified.
+
+**Oracle access path completed (2026-08-25, GPT-5):** Direct Oracle SSH can be rate-limited
+by sshd `MaxStartups`; the documented Tailscale path is now usable from this dev VM. Installed
+Tailscale 1.102.3 and enrolled the VM as `asu-dev-codex` with route/DNS/exit-node behavior
+disabled. Oracle is reachable directly at its Tailscale address. Verified Oracle's
+`asu-cal.service` and `cloudflared.service` active, commit `4dcd633` / v1.4.0 running, the
+TV Media key present, and the public edge serving v1.4.0 plus `/api/tv/lineups` successfully.
