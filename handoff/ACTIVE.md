@@ -73,10 +73,17 @@ Validated with JavaScript syntax checks, `git diff --check`, a real TV Media loo
 ESPN2 → channel 32), an app API lookup, payload/DB checks, and a local headless render.
 Real-device push delivery remains unverified.
 
-**Oracle access path completed (2026-08-25, GPT-5):** Direct Oracle SSH can be rate-limited
-by sshd `MaxStartups`; the documented Tailscale path is now usable from this dev VM. Installed
-Tailscale 1.102.3 and enrolled the VM as `asu-dev-codex`; subnet-route acceptance and DNS
-acceptance remain disabled, while the VM now advertises approved IPv4/IPv6 exit-node routes.
-Oracle is reachable directly at its Tailscale address. Verified Oracle's
-`asu-cal.service` and `cloudflared.service` active, commit `4dcd633` / v1.4.0 running, the
-TV Media key present, and the public edge serving v1.4.0 plus `/api/tv/lineups` successfully.
+**Oracle Tailscale access completed (2026-08-25, GPT-5):** Direct Oracle SSH can be
+rate-limited by sshd `MaxStartups`; Oracle is now the dedicated Tailscale access and exit
+node, named `oracle-vps` in Tailscale. It advertises and has approval for IPv4/IPv6 default
+routes, has IPv4/IPv6 forwarding enabled, subnet-route SNAT enabled, stateful filtering
+enabled, and Tailscale SSH enabled. The local development VM's temporary Tailscale node was
+removed; it is not part of the tailnet. Exit-node traffic was tested and exited through
+Oracle's public IP `170.9.227.11`. NetOpt, the Oracle speed-test endpoint, ASU production
+v1.4.0, `asu-cal.service`, and `cloudflared.service` remained healthy after the change.
+
+**TV provider mobile layout fix (2026-08-25, GPT-5):** Fixed the ZIP/provider lookup row
+on narrow screens. The full-width notification button had collapsed the adjacent ZIP input;
+the row now gives the input flexible space and the button only its content width. Bumped the
+stylesheet and service-worker cache versions; `pwa.js` and `sw.js` syntax checks plus
+`git diff --check` passed.

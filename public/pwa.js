@@ -420,9 +420,9 @@ function _renderNotifSection() {
     <p class="install-benefit">Tap the 🔔 bell on any game to pick alerts: game start, score updates, final score.</p>
     <div class="tv-prefs">
       <p class="install-benefit"><strong>Optional TV channel lookup</strong><br>Choose your ZIP code and provider to include your channel number in TV alerts.</p>
-      <div style="display:flex;gap:5px;margin:6px 0">
-        <input id="tv-zip" inputmode="numeric" maxlength="5" placeholder="ZIP code" value="${esc(_getTvPrefs()?.postalCode || '')}" style="min-width:0;flex:1">
-        <button id="tv-find" class="btn-enable-notif" style="padding:5px 8px">Find providers</button>
+      <div class="tv-lookup-row">
+        <input id="tv-zip" inputmode="numeric" maxlength="5" placeholder="ZIP code" value="${esc(_getTvPrefs()?.postalCode || '')}">
+        <button id="tv-find" class="btn-enable-notif">Find providers</button>
       </div>
       <select id="tv-provider" style="width:100%;margin:4px 0" disabled><option value="">Find providers first</option></select>
       <button id="tv-save" class="btn-enable-notif" style="padding:5px 8px;margin-top:4px" disabled>Save TV provider</button>

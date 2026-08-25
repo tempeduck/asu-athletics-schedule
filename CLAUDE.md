@@ -13,6 +13,7 @@ git tag (see `## Deploy / Promotion` below). Both run the same code; the schedul
 
 ### Prod — Oracle Cloud VPS (`asu.dikaiaserver.com`)
 - **Host**: Oracle `speedtest-wan`, `ubuntu@170.9.227.11` (Ubuntu 24.04, arm64, 4 OCPU/24 GB), TZ America/Chicago
+- **Tailscale access**: device `oracle-vps`, `100.77.149.49`; use `ssh ubuntu@100.77.149.49` / Tailscale SSH to bypass the public Oracle SSH `MaxStartups` throttle. The public address remains the fallback path.
 - **Project root**: `/home/ubuntu/projects/asu-athletics-schedule/`
 - **Secrets** (single file, consolidated — Oracle has no unifi-scripts fallback):
   `/home/ubuntu/projects/secrets.env` (chmod 600) holds CF_ANALYTICS_TOKEN, CF_ACCOUNT_ID,
@@ -58,7 +59,8 @@ dev box; when a feature is mature, cut a release tag, then deploy that tag on Or
 # on dev (Ubuntu), after bumping package.json + releases.json for the release:
 git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z
 
-# on prod (Oracle), ssh ubuntu@170.9.227.11:
+# on prod (Oracle), prefer the Tailscale path (public SSH remains a fallback):
+ssh ubuntu@100.77.149.49
 cd ~/projects/asu-athletics-schedule
 git fetch --tags && git checkout vX.Y.Z && npm ci && sudo systemctl restart asu-cal
 ```
