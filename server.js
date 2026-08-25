@@ -544,9 +544,11 @@ app.post('/api/subscribe', generalLimit, (req, res) => {
     if (!hasPushSubscription(endpoint) && (!p256dh || !auth)) {
       return res.status(400).json({ error: 'p256dh and auth required for new subscriptions' });
     }
-    const safeTvPrefs = tvPrefs && typeof tvPrefs === 'object' &&
-      tvmedia.validPostalCode(tvPrefs.postalCode) && tvmedia.validLineupId(tvPrefs.lineupId)
-      ? { postalCode: tvPrefs.postalCode.trim(), lineupId: tvPrefs.lineupId, providerName: String(tvPrefs.providerName || '').slice(0, 120) }
+    const hasValidTvLineup = tvPrefs && typeof tvPrefs === 'object' &&
+      tvmedia.validPostalCode(tvPrefs.postalCode) && tvmedia.validLineupId(tvPrefs.lineupId);
+    const hasTvAllPreference = tvPrefs && typeof tvPrefs === 'object' && typeof tvPrefs.allTelevised === 'boolean';
+    const safeTvPrefs = hasValidTvLineup || hasTvAllPreference
+      ? { postalCode: hasValidTvLineup ? tvPrefs.postalCode.trim() : '', lineupId: hasValidTvLineup ? tvPrefs.lineupId : '', providerName: hasValidTvLineup ? String(tvPrefs.providerName || '').slice(0, 120) : '', allTelevised: tvPrefs.allTelevised === true }
       : (tvPrefs === null ? null : undefined);
     upsertPushSubscription(endpoint, p256dh, auth, Array.isArray(sportPrefs) ? sportPrefs : null, safeTvPrefs);
     res.json({ success: true });

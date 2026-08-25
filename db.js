@@ -430,12 +430,27 @@ function getGameSubscribers(eventId) {
 }
 
 function getGameSubscribersForType(eventId, type) {
-  return getGameSubscribers(eventId).filter(row => {
+  const gameSubscribers = getGameSubscribers(eventId).filter(row => {
     const types = row.notification_types
       ? JSON.parse(row.notification_types)
       : ['game_start', 'final_score'];
     return types.includes(type);
   });
+  if (type !== 'tv_alert') return gameSubscribers;
+
+  // A device-level TV preference can subscribe it to every televised event
+  // without creating one game_subscriptions row per event.
+  const allTvSubscribers = db.prepare(`
+    SELECT endpoint, p256dh, auth, tv_preferences, NULL AS notification_types
+    FROM push_subscriptions
+    WHERE tv_preferences IS NOT NULL
+  `).all().filter(row => {
+    try { return JSON.parse(row.tv_preferences)?.allTelevised === true; } catch { return false; }
+  });
+
+  const unique = new Map();
+  for (const row of [...gameSubscribers, ...allTvSubscribers]) unique.set(row.endpoint, row);
+  return [...unique.values()];
 }
 
 function updateLiveScore(id, asuScore, oppScore) {

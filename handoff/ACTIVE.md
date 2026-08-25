@@ -87,3 +87,10 @@ on narrow screens. The full-width notification button had collapsed the adjacent
 the row now gives the input flexible space and the button only its content width. Bumped the
 stylesheet and service-worker cache versions; `pwa.js` and `sw.js` syntax checks plus
 `git diff --check` passed.
+
+**Global televised-game alerts (2026-08-25, GPT-5):** Added a Notifications-section option
+to automatically receive `tv_alert` pushes for every future event with a TV network. The
+preference is stored with the push subscription, deduplicates against per-event TV selections,
+preserves provider/channel preferences, and does not enable game-start, score-update, or
+final-score alerts. Bumped the frontend/service-worker cache versions and passed syntax and
+diff checks.

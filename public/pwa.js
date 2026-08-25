@@ -419,6 +419,10 @@ function _renderNotifSection() {
     <label class="group-label">Notifications <span style="font-size:0.7rem;font-weight:400;opacity:0.7">(enabled)</span></label>
     <p class="install-benefit">Tap the 🔔 bell on any game to pick alerts: game start, score updates, final score.</p>
     <div class="tv-prefs">
+      <label class="tv-all-row">
+        <input id="tv-all-televised" type="checkbox"${_getTvPrefs()?.allTelevised === true ? ' checked' : ''}>
+        <span><strong>Notify me for all televised games</strong><small>TV broadcast alerts only</small></span>
+      </label>
       <p class="install-benefit"><strong>Optional TV channel lookup</strong><br>Choose your ZIP code and provider to include your channel number in TV alerts.</p>
       <div class="tv-lookup-row">
         <input id="tv-zip" inputmode="numeric" maxlength="5" placeholder="ZIP code" value="${esc(_getTvPrefs()?.postalCode || '')}">
@@ -435,10 +439,24 @@ function _renderNotifSection() {
   const providerEl = section.querySelector('#tv-provider');
   const findEl = section.querySelector('#tv-find');
   const saveEl = section.querySelector('#tv-save');
+  const allTelevisedEl = section.querySelector('#tv-all-televised');
   const statusEl = section.querySelector('#tv-status');
   let lineups = [];
   const saved = _getTvPrefs();
   if (saved?.providerName) statusEl.textContent = `Saved provider: ${saved.providerName}`;
+  allTelevisedEl.addEventListener('change', async () => {
+    const prefs = { ...(_getTvPrefs() || {}), allTelevised: allTelevisedEl.checked };
+    store.setJSON(TV_PREFS_KEY, prefs);
+    const endpoint = window.getPushEndpoint();
+    if (!endpoint) { statusEl.textContent = 'Saved locally; enable notifications to sync this setting.'; return; }
+    try {
+      const res = await fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint, tvPrefs: prefs }) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      statusEl.textContent = allTelevisedEl.checked ? 'All televised-game alerts enabled.' : 'All televised-game alerts disabled.';
+    } catch (err) {
+      statusEl.textContent = `Saved locally; server sync failed (${err.message}).`;
+    }
+  });
   findEl.addEventListener('click', async () => {
     const zip = zipEl.value.trim();
     if (!/^\d{5}$/.test(zip)) { statusEl.textContent = 'Enter a valid 5-digit ZIP code.'; return; }
@@ -462,7 +480,7 @@ function _renderNotifSection() {
   saveEl.addEventListener('click', async () => {
     const selected = lineups.find(l => l.lineupID === providerEl.value);
     if (!selected) return;
-    const prefs = { postalCode: zipEl.value.trim(), lineupId: selected.lineupID, providerName: selected.providerName };
+    const prefs = { ...(_getTvPrefs() || {}), postalCode: zipEl.value.trim(), lineupId: selected.lineupID, providerName: selected.providerName };
     store.setJSON(TV_PREFS_KEY, prefs);
     const endpoint = window.getPushEndpoint();
     if (!endpoint) { statusEl.textContent = `Saved ${selected.providerName}; enable notifications to sync it.`; return; }
