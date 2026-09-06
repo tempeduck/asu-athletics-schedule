@@ -1,0 +1,10 @@
+{
+  "version": "1.5.0",
+  "serviceWorker": "v25",
+  "summaryStatus": 200,
+  "rateLimitPolicy": "60;w=60",
+  "actualGameState": "post",
+  "renderedDrives": 24,
+  "liveRefresh": "5 seconds verified with a recorded live response in the production browser",
+  "browserErrors": []
+}

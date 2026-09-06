@@ -1,5 +1,19 @@
 # Active Handoff
 
+**v1.5.0 SHIPPED [2026-09-06 (GPT-6)]:** Committed Gamecast as `d0070fd`, merged
+the deployed v1.4.1 hotfix ancestry in `f349366`, and atomically pushed main and
+the annotated v1.5.0 tag. Production deployed that tag with `npm ci`, passed
+syntax/cache/concurrency checks, and restarted successfully. Both application and
+tunnel services are active; production checkout is clean at `f349366`. Public
+verification confirms version 1.5.0, SW cache v25, modal asset v7, summary HTTP 200,
+`no-store`, and the 60/min live rate limit. A mobile production browser rendered
+24 drives for the now-final football game without JavaScript errors. Five-second
+polling was verified using a recorded live summary in the production browser.
+Evidence: `handoff/gamecast/production-verification.json` and
+`handoff/gamecast/football-prod-mobile.png`. Startup logged one venue geocode miss;
+Gamecast verification passed. The existing untracked Docker-transition note was
+left untouched and excluded from commits.
+
 **v1.5.0 release preparation [2026-09-06 (GPT-6)]:** Robert explicitly approved
 commit, push, and production deployment. Preparing main and the v1.5.0 release
 tag with Gamecast, 5-second live updates, and the existing committed TV-alert and

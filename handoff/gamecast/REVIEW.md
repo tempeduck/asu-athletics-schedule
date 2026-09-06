@@ -2,10 +2,10 @@
 
 [2026-09-06 (GPT-6)]
 
-Implemented as the v1.5.0 release candidate. Development service restarted
-with its existing scheduler-disable configuration. Robert approved commit, push,
-and deployment on September 6. Production was clean on v1.4.1 at preflight;
-deployment verification will be recorded in the active handoff.
+Shipped to production as v1.5.0 (`f349366`) on September 6 after Robert approved
+commit, push, and deployment. Main and the annotated release tag were pushed;
+production installed the release and restarted successfully. Development retains
+its existing scheduler-disable configuration.
 
 ## Sport coverage
 
@@ -95,6 +95,14 @@ Visual artifacts from the shared screenshot tool's Playwright installation:
 - [Mobile football](football-mobile.png)
 - [Mobile dark theme](football-mobile-dark.png)
 - [Actual development app, mobile](football-dev-mobile.png)
+- [Actual production app, mobile](football-prod-mobile.png)
+
+Production verification: public version 1.5.0; SW cache v25; summary HTTP 200,
+`Cache-Control: no-store`, and 60/min rate limit. The now-final football game
+rendered 24 drives with no browser JavaScript errors. A recorded live summary
+served to that same production browser confirmed one refresh after five seconds.
+Both production services are active and the checkout is clean at the release tag.
+Machine-readable results: [production-verification.json](production-verification.json).
 
 The release retains the existing v1.4.1 football fix in its ancestry. Main also
 contains the previously committed global televised-game alerts and mobile TV
