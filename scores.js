@@ -151,7 +151,10 @@ function buildESPNEvent(espnEvent, sport, scoreData) {
 }
 
 async function fetchLiveScoreboard(espnPath) {
-  const url = `${ESPN_BASE}/${espnPath}/scoreboard`;
+  // ESPN's default football board omits games outside its featured selection.
+  // Request the full FBS group so unranked ASU games reach both live consumers.
+  const query = espnPath === 'football/college-football' ? '?groups=80' : '';
+  const url = `${ESPN_BASE}/${espnPath}/scoreboard${query}`;
   const res = await fetch(url, {
     headers: { 'User-Agent': USER_AGENT },
     timeout: 15000,

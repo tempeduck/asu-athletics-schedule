@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "version": "1.5.0",
+      "date": "2026-09-06",
+      "title": "Gamecast",
+      "features": [
+        "Follow football with a field diagram, drive history, and full play-by-play",
+        "View basketball, baseball, and softball play-by-play when ESPN provides it, plus available ASU win-probability charts",
+        "Live game details refresh every 5 seconds while open, preserving your tab and reading position",
+        "Choose automatic TV alerts for all televised games, with an improved provider lookup layout on phones"
+      ]
+    },
+    {
+      "version": "1.4.1",
+      "date": "2026-09-05",
+      "title": "Football Live Scores",
+      "features": [
+        "Fixed missing football games in the live dashboard and background score updates"
+      ]
+    },
+    {
       "version": "1.4.0",
       "date": "2026-08-25",
       "title": "Personalized TV Alerts",

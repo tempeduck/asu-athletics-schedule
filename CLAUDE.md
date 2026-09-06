@@ -87,6 +87,7 @@ asu-athletics-schedule/
 │   ├── sports-config.js ← single source for sport slugs/configs/emoji/TOURNAMENT_RE
 │   ├── opponent.js      ← opponentFromTitle(title, {lowercase, fallback})
 │   ├── cache.js         ← TtlCache (evict-on-read, FIFO-capped)
+│   ├── game-summary.js  ← ESPN summaries: shared requests, 5s live cache
 │   ├── ical.js          ← buildIcsCalendar for /api/events.ics
 │   ├── ncaa.js          ← NCAA bracket scraping/GraphQL + ESPN matching + caches
 │   ├── tournaments.js   ← bracket/series/pool tournament builders
@@ -98,6 +99,7 @@ asu-athletics-schedule/
     ├── shared.js        ← loaded FIRST: esc/shortTitle/sportColor/logo maps + `store` localStorage wrapper
     ├── filters.js       ← filter sidebar state, view switching, event modal
     ├── game-modal.js    ← ESPN box-score modal (lazy-invoked via window.openGameDetailModal)
+    ├── gamecast.js      ← summary-driven field/drive/play and win-probability views
     ├── standings.js     ← standings/news widgets + roster modal (Live tab)
     ├── calendar.js / live.js / map.js / pwa.js / whats-new.js / feedback.js
     ├── stats.html / admin/feedback.html  ← online-only tools (SW network-only)

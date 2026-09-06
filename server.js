@@ -17,6 +17,7 @@ const standings = require('./lib/standings');
 const { getHeadToHead } = require('./lib/h2h');
 const team = require('./lib/team');
 const tvmedia = require('./lib/tvmedia');
+const { fetchGameSummary } = require('./lib/game-summary');
 
 // All secrets (CF_*, ADMIN_TOKEN, VAPID_*) come from the systemd
 // EnvironmentFile (~/projects/secrets.env on both boxes). The old
@@ -26,7 +27,6 @@ const { version: APP_VERSION } = require('./package.json');
 const _releasesData = require('./releases.json');
 
 // ── In-memory caches ──────────────────────────────────────────────────────────
-const espnGameCache = new TtlCache(); // espnEventId → ESPN summary JSON
 const cfStatsCache  = new TtlCache(); // `${days}`   → Cloudflare stats JSON
 
 const app = express();
@@ -350,12 +350,11 @@ app.get('/api/h2h', generalLimit, (req, res) => {
 
 // ── ESPN game summary proxy ───────────────────────────────────────────────────
 
-app.get('/api/game/:espnEventId', generalLimit, async (req, res) => {
+app.get('/api/game/:espnEventId', liveLimit, async (req, res) => {
   const { espnEventId } = req.params;
   const { sport } = req.query;
 
-  // Numeric only: the id is interpolated into the ESPN URL and keys an
-  // unbounded cache — reject junk before it reaches either.
+  // Numeric only: reject invalid IDs before they reach ESPN or the shared cache.
   if (!/^\d{1,20}$/.test(espnEventId)) {
     return res.status(400).json({ error: 'Invalid event id' });
   }
@@ -367,20 +366,9 @@ app.get('/api/game/:espnEventId', generalLimit, async (req, res) => {
     return res.status(400).json({ error: 'No ESPN box score for this sport' });
   }
 
-  const cached = espnGameCache.get(espnEventId);
-  if (cached) return res.json(cached);
-
   try {
-    const url = `https://site.api.espn.com/apis/site/v2/sports/${slug}/summary?event=${espnEventId}`;
-    const r = await fetch(url, {
-      headers: { 'User-Agent': USER_AGENT },
-      timeout: 10000,
-    });
-    if (!r.ok) return res.status(502).json({ error: 'ESPN unavailable' });
-    const data = await r.json();
-    const completed = data?.header?.competitions?.[0]?.status?.type?.completed === true;
-    const ttl = completed ? 5 * 60 * 1000 : 30 * 1000;
-    espnGameCache.set(espnEventId, data, ttl);
+    const data = await fetchGameSummary(slug, espnEventId);
+    res.set('Cache-Control', 'no-store');
     res.json(data);
   } catch (err) {
     console.error('[api] /api/game error:', err.message);

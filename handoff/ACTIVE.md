@@ -1,4 +1,72 @@
 # Active Handoff
+
+**v1.5.0 release preparation [2026-09-06 (GPT-6)]:** Robert explicitly approved
+commit, push, and production deployment. Preparing main and the v1.5.0 release
+tag with Gamecast, 5-second live updates, and the existing committed TV-alert and
+mobile-layout changes. The deployed v1.4.1 hotfix is retained in release ancestry.
+Backend cache/concurrency and eight-sport browser checks passed. Production was
+clean and active on v1.4.1 at preflight; deployment verification follows below.
+The unrelated untracked `handoff/DOCKER_TRANSITION.md` is excluded.
+
+**Faster Gamecast updates [2026-09-06 (GPT-6)]:** Robert requested faster updates.
+Live modal polling is now 5 seconds; upcoming games and error retries use 30
+seconds, with final/closed/hidden behavior preserved. ESPN's summary response
+advertised `Cache-Control: max-age=4` during inspection; this supports a practical
+5-second target, not a guaranteed upstream publication latency or documented
+maximum supported request rate. New `lib/game-summary.js` provides shared
+in-flight requests and bounded caches (live 5s, upcoming 30s, final 5min).
+The game route now uses the live rate limiter (60/min instead of the general
+100/15min) and returns `Cache-Control: no-store`. Backend concurrency/cache/error
+tests and the eight-sport browser suite passed. Dev service restarted; no new
+commit, tag, push, or production deployment. Modal asset v7; SW cache v25.
+
+**Gamecast implementation [2026-09-05 (GPT-6)]:** Robert approved building the
+Gamecast-style view. Implemented locally as v1.5.0 with football field/drive/play
+detail, shared play-by-play for basketball/baseball/softball, available ASU
+win-probability charts, and 30-second modal refresh with cancellation, error
+recovery, visibility pause, and reading-position preservation. Eight real ESPN
+game samples passed Chromium validation, including 320/390px layouts and dark
+theme screenshots. Syntax and diff checks passed. Development service restarted
+with `DISABLE_SCHEDULER=1`; production remains v1.4.1. Feature changes are
+uncommitted and have not been deployed. Full coverage, evidence links, validation,
+screenshots, and release notes: `handoff/gamecast/REVIEW.md`. Regression runner:
+`scripts/verify-gamecast.cjs` (shared screenshot-tool Playwright, no DB access).
+
+**Gamecast API investigation [2026-09-05 (GPT-6)]:** Read-only inspection of
+ESPN's college-football summary endpoint for event `401856774` returned HTTP 200
+without credentials. Payload includes team/player box scores, scoring plays,
+current and previous drives with individual plays and start/end field positions,
+win-probability history, and video entries. Existing `/api/game/:espnEventId`
+already proxies the full summary (30-second cache for active games); the modal
+renders box scores and scoring plays but fetches only when opened. A Gamecast-style
+view could use existing data for drive/play lists, field position, win probability,
+and periodic refresh. No feature implementation requested or performed.
+
+**Missing live football diagnosis [2026-09-05 (GPT-6)]:** Production `/api/live`
+omits the in-progress Morgan State–ASU football game (ESPN event `401856774`).
+`scores.js:153` requests ESPN's bare football `/scoreboard`, whose current response
+does not include ASU. Read-only comparisons confirmed that `?limit=1000` alone
+still omits ASU, while `?groups=80` includes the game with status `in`.
+The team schedule also confirms the game is in progress. Proposed fix: explicitly
+request the broader football group in `fetchLiveScoreboard`, validate inclusion
+through the live and background-score paths, then promote to production with
+approval. No application code or production configuration changed; implementation
+and deployment were subsequently approved by Robert (see follow-up below).
+
+**Football hotfix [2026-09-05 (GPT-6)]:** Robert approved implementation and
+deployment. `fetchLiveScoreboard` now requests `?groups=80` for college football;
+other sports retain their existing URLs. Syntax and diff checks passed. An isolated
+validation using real ESPN data and stubbed database writes confirmed the game
+appears as live and the background poller records its score. A separate request
+check confirmed the soccer URL is unchanged. Release `v1.4.1` (`912f216`) was built
+from production's `v1.4.0`, containing only the football fix and release metadata,
+and pushed. Deployed on production with `npm ci` and service restart; service is
+active. Public `/api/version` confirms `1.4.1`, and `/api/live` returns event
+`401856774`, matched to database event `347146`, as live (ASU 21–0, 6:15 first
+quarter at verification). Local main contains the same
+changes uncommitted; the release commit is on the hotfix tag, not main. Existing
+untracked `handoff/DOCKER_TRANSITION.md` was left untouched.
+
 > Full dated history (roadmap phases 1–4, the big refactor, the Oracle migration) archived in `CHANGELOG-handoff.md`.
 
 **Current state (2026-07-01, Claude Code):** Full codebase audit complete — findings and the

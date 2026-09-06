@@ -2002,12 +2002,14 @@ a.news-row:hover { background: var(--bg); }
 /* Box score tabs */
 .gm-tabs {
   display: flex;
+  overflow-x: auto;
   border-bottom: 2px solid var(--border);
   padding: 0 16px;
   background: var(--bg);
 }
 
 .gm-tab {
+  flex-shrink: 0;
   padding: 10px 16px;
   font-size: 0.82rem;
   font-weight: 600;
@@ -2071,6 +2073,32 @@ a.news-row:hover { background: var(--bg); }
 }
 
 .gm-play-score { font-size: 0.78rem; font-weight: 600; }
+
+/* Gamecast: field position, probability and a responsive play timeline. */
+.gm-refresh-status { margin: 0; padding: 10px 16px; font-size: .75rem; color: var(--text-muted); background: var(--bg); }
+.gc-field-card, .gc-probability { margin: 16px; }
+.gc-section-heading { font-size: .75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+.gc-possession { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; margin: 10px 0; font-size: .85rem; }
+.gc-field { display: block; width: 100%; border-radius: 8px; }
+.gc-field-key, .gc-chart-key { font-size: .7rem; color: var(--text-muted); margin-top: 6px; }
+.gc-probability { padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
+.gc-probability-heading { display: flex; align-items: baseline; justify-content: space-between; font-size: .82rem; gap: 8px; }
+.gc-probability-heading strong { font-size: 1.25rem; color: var(--ink-accent); }
+.gc-probability svg { display: block; width: 100%; color: var(--ink-accent); }
+.gc-chart-key { display: flex; justify-content: space-between; gap: 8px; }
+.gc-timeline-heading { padding: 12px 16px; background: var(--bg); border-block: 1px solid var(--border); }
+.gc-drive { border-bottom: 1px solid var(--border); }
+.gc-drive summary { padding: 14px 16px; cursor: pointer; font-size: .85rem; background: var(--bg); overflow-wrap: anywhere; }
+.gc-drive summary:focus-visible, .gm-tab:focus-visible { outline: 2px solid var(--ink-accent); outline-offset: -3px; }
+.gc-drive-description { display: block; padding-top: 5px; color: var(--text-muted); font-size: .75rem; }
+.gc-play { padding: 12px 16px; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.gc-play:last-child { border-bottom: 0; }
+.gc-play-asu { background: var(--asu-tint); border-left: 3px solid var(--maroon); padding-left: 13px; }
+.gc-play-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 10px; font-size: .7rem; color: var(--text-muted); }
+.gc-play-meta strong { color: var(--ink-accent); }
+.gc-play p { margin: 6px 0; font-size: .85rem; line-height: 1.5; }
+.gc-play-score { font-size: .72rem; color: var(--text-muted); font-weight: 600; }
+.gc-empty { padding: 16px; margin: 0; color: var(--text-muted); font-size: .85rem; }
 
 /* Head-to-head strip (both modals) */
 

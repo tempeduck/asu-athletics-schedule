@@ -7,8 +7,17 @@
 
 let _gmEscKey = null;
 let _gmPrevFocus = null;
+let _gmSession = null;
+
+function _gmStopSession() {
+  if (!_gmSession) return;
+  clearTimeout(_gmSession.timer);
+  _gmSession.controller?.abort();
+  _gmSession = null;
+}
 
 window.closeGameModal = function() {
+  _gmStopSession();
   document.getElementById('game-modal-overlay')?.classList.remove('open');
   if (_gmEscKey) { document.removeEventListener('keydown', _gmEscKey); _gmEscKey = null; }
   if (_gmPrevFocus?.focus) { _gmPrevFocus.focus(); _gmPrevFocus = null; }
@@ -27,6 +36,8 @@ window.openGameDetailModal = function(espnEventId, sport, fallback) {
   const overlay = document.getElementById('game-modal-overlay');
   const inner   = document.getElementById('game-modal-inner');
   if (!overlay || !inner) return;
+  _gmStopSession();
+  if (_gmEscKey) document.removeEventListener('keydown', _gmEscKey);
 
   overlay.onclick = (e) => { if (e.target === overlay) window.closeGameModal(); };
   _gmEscKey = (e) => { if (e.key === 'Escape') window.closeGameModal(); };
@@ -43,14 +54,82 @@ window.openGameDetailModal = function(espnEventId, sport, fallback) {
     return;
   }
 
-  fetch(`/api/game/${encodeURIComponent(espnEventId)}?sport=${encodeURIComponent(sport || '')}`)
-    .then(r => r.json())
-    .then(data => {
-      if (data.error) _gmRenderFallback(inner, fallback);
-      else _gmRenderStats(inner, data, sport);
-    })
-    .catch(() => _gmRenderFallback(inner, fallback));
+  const session = { espnEventId, sport, fallback, inner, loaded: false, timer: null };
+  _gmSession = session;
+  _gmRefresh(session);
 };
+
+async function _gmRefresh(session) {
+  if (_gmSession !== session) return;
+  // Background tabs resume on visibilitychange without polling ESPN while hidden.
+  if (document.hidden) return;
+  clearTimeout(session.timer);
+  session.refreshMs = 30000; // Back off after errors; upcoming games also use 30s.
+  session.controller = new AbortController();
+  const timeout = setTimeout(() => session.controller.abort(), 15000);
+  try {
+    const res = await fetch(`/api/game/${encodeURIComponent(session.espnEventId)}?sport=${encodeURIComponent(session.sport || '')}`, { signal: session.controller.signal });
+    if (!res.ok) throw new Error('Game data unavailable');
+    const data = await res.json();
+    if (_gmSession !== session) return;
+    if (data.error || !data.header?.competitions?.[0]) throw new Error('Game data unavailable');
+    const inner = session.inner;
+    const modal = document.getElementById('game-modal');
+    const scroll = modal.scrollTop;
+    const bounds = modal.getBoundingClientRect();
+    const anchor = scroll > 0 ? [...inner.querySelectorAll('.gm-tab-panel.active [data-gc-play]')].find(el => {
+      const rect = el.getBoundingClientRect();
+      return rect.bottom > bounds.top && rect.top < bounds.bottom;
+    }) : null;
+    const anchorId = anchor?.dataset.gcPlay;
+    const anchorTop = anchor?.getBoundingClientRect().top;
+    const activeTab = inner.querySelector('.gm-tab-panel.active')?.id;
+    const driveState = new Map([...inner.querySelectorAll('[data-gm-drive]')].map(el => [el.dataset.gmDrive, el.open]));
+    const focused = document.activeElement;
+    const focusTab = focused?.classList.contains('gm-tab') ? focused.dataset.gmTab : null;
+    const focusDrive = focused?.closest('[data-gm-drive]')?.dataset.gmDrive;
+    const h2h = session.loaded ? inner.querySelector('#gm-h2h')?.innerHTML : undefined;
+    _gmRenderStats(inner, data, session.sport, h2h);
+    if (activeTab) {
+      const button = [...inner.querySelectorAll('.gm-tab')].find(el => el.dataset.gmTab === activeTab);
+      if (button) window.switchGameTab(button, activeTab);
+    }
+    inner.querySelectorAll('[data-gm-drive]').forEach(el => {
+      if (driveState.has(el.dataset.gmDrive)) el.open = driveState.get(el.dataset.gmDrive);
+    });
+    if (focusTab) [...inner.querySelectorAll('.gm-tab')].find(el => el.dataset.gmTab === focusTab)?.focus({ preventScroll: true });
+    if (focusDrive) [...inner.querySelectorAll('[data-gm-drive]')].find(el => el.dataset.gmDrive === focusDrive)?.querySelector('summary')?.focus({ preventScroll: true });
+    modal.scrollTop = scroll;
+    if (anchorId) {
+      const restored = [...inner.querySelectorAll('.gm-tab-panel.active [data-gc-play]')].find(el => el.dataset.gcPlay === anchorId);
+      if (restored) modal.scrollTop += restored.getBoundingClientRect().top - anchorTop;
+    }
+    session.loaded = true;
+    session.completed = data.header.competitions[0].status?.type?.completed === true;
+    session.refreshMs = data.header.competitions[0].status?.type?.state === 'in' ? 5000 : 30000;
+    const status = inner.querySelector('.gm-refresh-status');
+    if (status) status.textContent = session.completed ? 'Final · Updates complete' : `Updated ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · Refreshes every ${session.refreshMs / 1000} seconds`;
+  } catch (err) {
+    if (_gmSession !== session) return;
+    if (!session.loaded) {
+      _gmRenderFallback(session.inner, session.fallback);
+      session.inner.insertAdjacentHTML('beforeend', '<p class="gm-refresh-status" role="status">Game details unavailable. Retrying in 30 seconds.</p>');
+    } else {
+      const status = session.inner.querySelector('.gm-refresh-status');
+      if (status) status.textContent = 'Updates interrupted · Showing last received data. Retrying in 30 seconds.';
+    }
+  } finally {
+    clearTimeout(timeout);
+    session.controller = null;
+    if (_gmSession === session && !session.completed && !document.hidden) session.timer = setTimeout(() => _gmRefresh(session), session.refreshMs);
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!_gmSession) return;
+  clearTimeout(_gmSession.timer);
+  if (!document.hidden && !_gmSession.completed && !_gmSession.controller) _gmRefresh(_gmSession);
+});
 
 function _gmRenderFallback(container, fallback) {
   if (!fallback) { container.innerHTML = ''; return; }
@@ -68,7 +147,7 @@ function _gmRenderFallback(container, fallback) {
   window.loadH2hInto('gm-h2h', fallback.sport, fallback.title);
 }
 
-function _gmRenderStats(container, data, sport) {
+function _gmRenderStats(container, data, sport, h2hHtml) {
   const comp = data?.header?.competitions?.[0];
   if (!comp) { _gmRenderFallback(container, {}); return; }
 
@@ -144,17 +223,19 @@ function _gmRenderStats(container, data, sport) {
   const lsHtml = _gmBuildLinescore(comp, competitors, asuTeam, sport);
   const box    = _gmBuildBoxScore(data?.boxscore, asuTeam, sport);
   const plays  = _gmBuildPlays(data, sport, asuTeam, competitors);
+  const gamecast = window.buildGamecastPanel(data, sport, asuTeam, competitors);
 
-  const tabs = [...box.tabs, ...(plays ? [plays.tab] : [])];
+  const tabs = [...(gamecast ? [gamecast.tab] : []), ...box.tabs, ...(plays ? [plays.tab] : [])];
   const tabsHtml = tabs.length
     ? `<div class="gm-tabs">${tabs.map(t =>
-        `<button class="gm-tab" onclick="switchGameTab(this,'${t.id}')">${esc(t.label)}</button>`).join('')}</div>`
+        `<button class="gm-tab" data-gm-tab="${t.id}" onclick="switchGameTab(this,'${t.id}')">${esc(t.label)}</button>`).join('')}</div>`
     : '';
 
   container.innerHTML = hdrHtml +
-    `<div class="gm-body"><div id="gm-h2h"></div>${lsHtml}${tabsHtml}${box.panels}${plays ? plays.panel : ''}</div>`;
+    `<div class="gm-body"><p class="gm-refresh-status" role="status"></p><div id="gm-h2h"></div>${lsHtml}${tabsHtml}${gamecast ? gamecast.panel : ''}${box.panels}${plays ? plays.panel : ''}</div>`;
   container.querySelector('.gm-tab')?.click();
-  window.loadH2hInto('gm-h2h', sport, oppTeam?.team?.displayName);
+  if (h2hHtml !== undefined) container.querySelector('#gm-h2h').innerHTML = h2hHtml;
+  else window.loadH2hInto('gm-h2h', sport, oppTeam?.team?.displayName);
 }
 
 // ── Scoring plays tab ─────────────────────────────────────────────────────────
@@ -234,11 +315,12 @@ function _gmBuildPlays(data, sport, asuTeam, competitors) {
 
 window.loadH2hInto = function(elId, sport, opponent) {
   if (!sport || !opponent) return;
+  const target = document.getElementById(elId);
   fetch(`/api/h2h?sport=${encodeURIComponent(sport)}&opponent=${encodeURIComponent(opponent)}`)
     .then(r => r.ok ? r.json() : null)
     .then(d => {
       const el = document.getElementById(elId);
-      if (!el || !d || !d.games) return;
+      if (!el || el !== target || !d || !d.games) return;
       el.innerHTML = _h2hStripHtml(d);
     })
     .catch(() => {});
