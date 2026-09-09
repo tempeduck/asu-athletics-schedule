@@ -1,7 +1,21 @@
 # Active Handoff
 
+**School season summaries [2026-09-08 (GPT-5 Codex)]:** Robert approved a
+clickable summary for every team, including ASU. Release `v1.6.0` is prepared
+locally for commit, push, and Oracle deployment: the new `/api/team-summary` resolves a team by its
+known ESPN ID or sport-aware name lookup, caches league directories for 24h and
+summaries for 5m, and returns its current record plus eight recent/upcoming
+schedule entries. A shared accessible modal is available from live cards,
+conference standings, basic event details, Game Details, and tournament/bracket
+team labels; unsupported sports or off-season/non-ESPN teams state that no
+current-season summary is available. Live-game objects now retain both teams'
+ESPN IDs. Frontend assets are versioned through SW cache v27. Passed syntax and
+diff checks, real ESPN football/baseball resolution checks, the game-summary
+cache suite, and a Chromium 390px click-through test. Temporary port-3200 server
+was stopped; no production action was performed.
+
 **Completed-game stats [2026-09-08 (GPT-5 Codex)]:** Approved implementation
-is committed locally as `6c917e3` and remains undeployed. The `events` migration now
+is committed locally as `2feb41b` and remains undeployed. The `events` migration now
 adds `espn_event_id`; every final-score reconciliation records it, including
 games whose score was already correct, so the nightly season sync backfills
 matched historical feed events. Calendar, list, and map event details now use

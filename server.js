@@ -16,6 +16,7 @@ const ncaa = require('./lib/ncaa');
 const standings = require('./lib/standings');
 const { getHeadToHead } = require('./lib/h2h');
 const team = require('./lib/team');
+const { getTeamSummary } = require('./lib/team-summary');
 const tvmedia = require('./lib/tvmedia');
 const { fetchGameSummary } = require('./lib/game-summary');
 
@@ -329,6 +330,14 @@ app.get('/api/roster', generalLimit, async (req, res) => {
     console.error('[api] /api/roster error:', err.message);
     res.status(502).json({ error: 'ESPN unavailable' });
   }
+});
+
+app.get('/api/team-summary', generalLimit, async (req, res) => {
+  const { sport, teamId, name } = req.query;
+  if (!sport || (!name && !teamId)) return res.status(400).json({ error: 'sport and team are required' });
+  if (teamId && !/^\d{1,20}$/.test(teamId)) return res.status(400).json({ error: 'Invalid team id' });
+  try { res.set('Cache-Control', 'no-store'); res.json(await getTeamSummary(sport, teamId, name)); }
+  catch (err) { console.error('[api] /api/team-summary error:', err.message); res.status(502).json({ error: 'ESPN unavailable' }); }
 });
 
 // ── Head-to-head vs opponent (local DB) ───────────────────────────────────────

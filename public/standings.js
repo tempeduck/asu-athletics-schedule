@@ -51,7 +51,7 @@
       return `
         <tr class="${e.isASU ? 'standings-asu-row' : ''}">
           <td class="standings-pos">${i + 1}</td>
-          <td class="standings-team">${logoHtml}${esc(e.name)}</td>
+          <td class="standings-team">${logoHtml}${teamSummaryLink(data.sport, e.name, e.teamId, esc(e.name))}</td>
           <td>${esc(hasConf ? (e.conf || '–') : (e.confPct || '–'))}</td>
           <td>${esc(e.overall || '–')}</td>
           ${hasGB ? `<td>${esc(e.gamesBehind || '–')}</td>` : ''}

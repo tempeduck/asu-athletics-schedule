@@ -352,13 +352,13 @@ function _cardMatchupHtml(game) {
   return `<div class="live-card-matchup">
         <div class="live-card-team">
           ${asuLogoSvg}
-          <div class="live-card-team-name">${rankBadgeHTML(game.asuRank)}Arizona State</div>
+          <div class="live-card-team-name">${rankBadgeHTML(game.asuRank)}${teamSummaryLink(game.sport, 'Arizona State Sun Devils', game.asuTeamId, 'Arizona State')}</div>
           ${asuScoreEl}
         </div>
         ${vsOrTime}
         <div class="live-card-team">
           ${oppLogoEl}
-          <div class="live-card-team-name">${rankBadgeHTML(game.oppRank)}${esc(shortOppName(game.oppName))}</div>
+          <div class="live-card-team-name">${rankBadgeHTML(game.oppRank)}${teamSummaryLink(game.sport, game.oppName, game.oppTeamId, esc(shortOppName(game.oppName)))}</div>
           ${oppScoreEl}
         </div>
       </div>`;
@@ -701,7 +701,7 @@ function _renderNcaaTeamRow(team, isFinal, isLive) {
 
   const elimHtml = isElim ? '<span class="ncaa-elim-label">ELIM</span>' : '';
 
-  return `<div class="${rowClass}">${seedHtml}${logoHtml}<span class="ncaa-team-name">${esc(team.nameShort || 'TBD')}</span>${recordHtml}${scoreHtml}${elimHtml}</div>`;
+  return `<div class="${rowClass}">${seedHtml}${logoHtml}<span class="ncaa-team-name">${teamSummaryLink('Baseball', team.nameShort || 'TBD', null, esc(team.nameShort || 'TBD'))}</span>${recordHtml}${scoreHtml}${elimHtml}</div>`;
 }
 
 function _ncaaFormatDate(dateStr) {
@@ -743,7 +743,7 @@ function renderUpcomingTournament(tournament) {
     return `
       <div class="tourn-game-row">
         <div class="tourn-game-left">
-          <span class="tourn-opp">${esc(oppDisplay)}</span>
+          <span class="tourn-opp">${teamSummaryLink(tournament.sport, oppDisplay, null, esc(oppDisplay))}</span>
           ${resultChip}
         </div>
         <div class="tourn-game-right">
@@ -786,7 +786,7 @@ function renderBracket(tournament) {
   const roundsHtml = tournament.rounds.map(round => `
     <div class="bracket-round">
       <div class="bracket-round-label">${esc(round.name)}</div>
-      ${(round.matchups || []).map(m => renderMatchup(m)).join('')}
+      ${(round.matchups || []).map(m => renderMatchup(m, tournament.sport)).join('')}
     </div>`).join('');
 
   return `
@@ -800,7 +800,7 @@ function renderBracket(tournament) {
     </div>`;
 }
 
-function renderMatchup(m) {
+function renderMatchup(m, sport) {
   const liveClass = m.state === 'in' ? ' bm-live' : '';
   const teamA = m.teamA || { name: 'TBD', abbr: 'TBD', logo: null, seed: null, score: null, winner: null, isASU: false };
   const teamB = m.teamB || { name: 'TBD', abbr: 'TBD', logo: null, seed: null, score: null, winner: null, isASU: false };
@@ -812,13 +812,13 @@ function renderMatchup(m) {
 
   return `
     <div class="bracket-matchup${liveClass}">
-      ${renderBracketTeam(teamA, m.state)}
-      ${renderBracketTeam(teamB, m.state)}
+      ${renderBracketTeam(teamA, m.state, sport)}
+      ${renderBracketTeam(teamB, m.state, sport)}
       ${timeOrSituation}
     </div>`;
 }
 
-function renderBracketTeam(team, state) {
+function renderBracketTeam(team, state, sport) {
   const winnerClass = team.winner === true ? ' bt-winner' : '';
   const loserClass  = team.winner === false ? ' bt-loser' : '';
   const asuClass    = team.isASU ? ' bt-asu' : '';
@@ -841,7 +841,7 @@ function renderBracketTeam(team, state) {
 
   return `<div class="bracket-team${winnerClass}${loserClass}${asuClass}">
     ${seedHtml}${logoHtml}
-    <span class="bracket-team-name">${esc(shortOppName(team.name || 'TBD'))}</span>
+    <span class="bracket-team-name">${teamSummaryLink(sport, team.name || 'TBD', team.id, esc(shortOppName(team.name || 'TBD')))}</span>
     ${scoreHtml}${liveBadge}
   </div>`;
 }
@@ -857,7 +857,7 @@ function renderPoolStandings(tournament) {
       <tr class="${s.isASU ? 'standings-asu-row' : ''}">
         <td>${esc(s.rank)}</td>
         <td>
-          ${logoHtml}${esc(s.name)}
+          ${logoHtml}${teamSummaryLink(tournament.sport, s.name, s.teamId, esc(s.name))}
         </td>
         <td>${esc(s.w)}</td>
         <td>${esc(s.l)}</td>

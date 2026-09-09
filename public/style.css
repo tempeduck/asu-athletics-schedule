@@ -2025,6 +2025,11 @@ a.news-row:hover { background: var(--bg); }
 .gm-tab.active { color: var(--ink-accent); border-bottom-color: var(--ink-accent); }
 .gm-tab-panel { display: none; }
 .gm-tab-panel.active { display: block; }
+.team-summary-link { appearance:none; border:0; background:none; color:inherit; font:inherit; cursor:pointer; padding:0; text-align:inherit; }
+.team-summary-link:hover, .team-summary-link:focus-visible { color:var(--ink-accent); text-decoration:underline; }
+.team-summary-head { display:flex; align-items:center; gap:12px; font-size:.82rem; }
+.team-summary-head strong { display:block; font-size:1.1rem; color:white; margin-bottom:3px; }
+.team-summary-body { padding:20px; }.team-summary-body h3 { font-size:1rem; margin-bottom:10px; }.team-summary-body ul { list-style:none; }.team-summary-body li { display:flex; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); font-size:.85rem; }.team-summary-body small { color:var(--text-muted); text-align:right; }
 
 /* Scoring plays tab */
 

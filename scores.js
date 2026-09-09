@@ -300,6 +300,8 @@ function _buildLiveGame(cfg, espnEvent, comp, asuComp, oppComp, dbMatch) {
 
   return {
     espnEventId: espnEvent.id,
+    asuTeamId: asuComp.team?.id || null,
+    oppTeamId: oppComp?.team?.id || null,
     dbEventId: dbMatch?.id ?? null,
     sport: cfg.dbSport,
     title,

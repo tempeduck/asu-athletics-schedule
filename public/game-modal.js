@@ -203,13 +203,13 @@ function _gmRenderStats(container, data, sport, h2hHtml) {
       <div class="gm-scores">
         <div class="gm-team">
           ${asuTeam ? teamLogoHtml(asuTeam) : '<div class="gm-team-logo-placeholder">ASU</div>'}
-          <div class="gm-team-name">${rankBadgeHTML(asuTeam?.rank)}${esc(asuTeam?.team?.displayName || 'Arizona State')}</div>
+          <div class="gm-team-name">${rankBadgeHTML(asuTeam?.rank)}${teamSummaryLink(sport, asuTeam?.team?.displayName || 'Arizona State', asuTeam?.team?.id, esc(asuTeam?.team?.displayName || 'Arizona State'))}</div>
           <div class="gm-score${asuWins ? ' gm-winner' : ''}">${esc(asuTeam?.score ?? '–')}</div>
         </div>
         <div class="gm-vs">–</div>
         <div class="gm-team">
           ${oppTeam ? teamLogoHtml(oppTeam) : '<div class="gm-team-logo-placeholder">OPP</div>'}
-          <div class="gm-team-name">${rankBadgeHTML(oppTeam?.rank)}${esc(oppTeam?.team?.displayName || 'Opponent')}</div>
+          <div class="gm-team-name">${rankBadgeHTML(oppTeam?.rank)}${teamSummaryLink(sport, oppTeam?.team?.displayName || 'Opponent', oppTeam?.team?.id, esc(oppTeam?.team?.displayName || 'Opponent'))}</div>
           <div class="gm-score${oppWins ? ' gm-winner' : ''}">${esc(oppTeam?.score ?? '–')}</div>
         </div>
       </div>

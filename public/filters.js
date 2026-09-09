@@ -415,6 +415,10 @@ function openEventModal(event) {
   if (event.opp_rank) {
     rows.push(row('🏅', 'Opponent', `<span class="rank-badge">#${esc(event.opp_rank)}</span> in latest poll`));
   }
+  const opponent = (event.title || '').match(/\b(?:at|vs\.?)\s+(.+)$/i)?.[1]?.trim();
+  if (opponent && window.teamSummaryLink) {
+    rows.push(row('🏫', 'Teams', `${teamSummaryLink(event.sport, 'Arizona State Sun Devils', null, 'Arizona State')} · ${teamSummaryLink(event.sport, opponent, null, esc(shortOppName(opponent)))}`));
+  }
   if (event.game_type) {
     rows.push(row('🏟️', 'Type', esc(capitalize(event.game_type))));
   }
