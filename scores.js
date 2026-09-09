@@ -67,7 +67,9 @@ function findDBMatch(scoreData, dbEvents, espnDate) {
   // Strongest signal first: an espn_{id} row from a previous sync/auto-insert
   // is this exact game regardless of date shifts (reschedules, TBD times).
   if (scoreData.espnEventId) {
-    const byEspnId = dbEvents.find(db => db.id === `espn_${scoreData.espnEventId}`);
+    const byEspnId = dbEvents.find(db =>
+      db.id === `espn_${scoreData.espnEventId}` || String(db.espn_event_id || '') === String(scoreData.espnEventId)
+    );
     if (byEspnId) return byEspnId;
   }
 
@@ -147,6 +149,7 @@ function buildESPNEvent(espnEvent, sport, scoreData) {
     asu_score: scoreData.asu_score,
     opp_score: scoreData.opp_score,
     result: scoreData.result,
+    espn_event_id: espnEvent.id,
   };
 }
 
@@ -261,8 +264,9 @@ function _syncCompletedGame(espnEvent, dbEvents) {
   if (!dbMatch) return;
   if (dbMatch.result !== scoreData.result ||
       dbMatch.asu_score !== scoreData.asu_score ||
-      dbMatch.opp_score !== scoreData.opp_score) {
-    updateScore(dbMatch.id, scoreData.asu_score, scoreData.opp_score, scoreData.result);
+      dbMatch.opp_score !== scoreData.opp_score ||
+      String(dbMatch.espn_event_id || '') !== String(espnEvent.id)) {
+    updateScore(dbMatch.id, scoreData.asu_score, scoreData.opp_score, scoreData.result, espnEvent.id);
     console.log(`[live] Auto-updated completed game: ${dbMatch.title}`);
   }
   if (dbMatch.game_status !== 'post') {
@@ -538,8 +542,9 @@ async function fetchAndStoreLiveScores() {
 
       if (dbMatch.result !== scoreData.result ||
           dbMatch.asu_score !== scoreData.asu_score ||
-          dbMatch.opp_score !== scoreData.opp_score) {
-        updateScore(dbMatch.id, scoreData.asu_score, scoreData.opp_score, scoreData.result);
+          dbMatch.opp_score !== scoreData.opp_score ||
+          String(dbMatch.espn_event_id || '') !== String(espnEvent.id)) {
+        updateScore(dbMatch.id, scoreData.asu_score, scoreData.opp_score, scoreData.result, espnEvent.id);
         written++;
       }
       if (dbMatch.game_status !== 'post') {
@@ -585,10 +590,12 @@ async function fetchAndStoreScores() {
       const dbMatch = findDBMatch(scoreData, dbEvents, espnDate);
 
       if (dbMatch) {
-        if (dbMatch.result === scoreData.result &&
-            dbMatch.asu_score === scoreData.asu_score &&
-            dbMatch.opp_score === scoreData.opp_score) continue;
-        updateScore(dbMatch.id, scoreData.asu_score, scoreData.opp_score, scoreData.result);
+        const needsScoreUpdate = dbMatch.result !== scoreData.result ||
+          dbMatch.asu_score !== scoreData.asu_score ||
+          dbMatch.opp_score !== scoreData.opp_score;
+        const needsEspnId = String(dbMatch.espn_event_id || '') !== String(espnEvent.id);
+        if (!needsScoreUpdate && !needsEspnId) continue;
+        updateScore(dbMatch.id, scoreData.asu_score, scoreData.opp_score, scoreData.result, espnEvent.id);
         updated++;
       } else {
         upsertESPNEvent(buildESPNEvent(espnEvent, cfg.dbSport, scoreData));

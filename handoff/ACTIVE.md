@@ -1,5 +1,20 @@
 # Active Handoff
 
+**Completed-game stats [2026-09-08 (GPT-5 Codex)]:** Approved implementation
+is committed locally as `6c917e3` and remains undeployed. The `events` migration now
+adds `espn_event_id`; every final-score reconciliation records it, including
+games whose score was already correct, so the nightly season sync backfills
+matched historical feed events. Calendar, list, and map event details now use
+that retained ID (or an existing `espn_<id>` row) to open the ESPN final-game
+modal after the game leaves the 24-hour live feed. The modal retains its
+linescore, player-stat tabs, scoring/play data, and final status. Frontend
+assets were cache-busted (`filters.js` v25, SW cache v26). Passed syntax and
+diff checks, `scripts/verify-game-summary.cjs`, the fixture-backed
+`scripts/verify-gamecast.cjs`, and a Chromium check against a real completed
+baseball summary confirming final-event Batting and Pitching tabs. The local
+temporary server was stopped. The unrelated untracked Docker-transition note
+remains untouched.
+
 **v1.5.0 SHIPPED [2026-09-06 (GPT-6)]:** Committed Gamecast as `d0070fd`, merged
 the deployed v1.4.1 hotfix ancestry in `f349366`, and atomically pushed main and
 the annotated v1.5.0 tag. Production deployed that tag with `npm ci`, passed

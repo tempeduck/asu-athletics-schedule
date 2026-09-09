@@ -71,6 +71,9 @@ if (!existingCols.includes('push_sent'))       db.exec('ALTER TABLE events ADD C
 if (!existingCols.includes('tv_push_sent'))    db.exec('ALTER TABLE events ADD COLUMN tv_push_sent INTEGER NOT NULL DEFAULT 0');
 if (!existingCols.includes('final_push_sent')) db.exec('ALTER TABLE events ADD COLUMN final_push_sent INTEGER NOT NULL DEFAULT 0');
 if (!existingCols.includes('game_status'))     db.exec('ALTER TABLE events ADD COLUMN game_status TEXT');
+// ESPN IDs make a completed game's official summary (including player stats)
+// available from the calendar after it has left the short-lived live feed.
+if (!existingCols.includes('espn_event_id'))   db.exec('ALTER TABLE events ADD COLUMN espn_event_id TEXT');
 
 // ── Push subscription tables ──────────────────────────────────────────────────
 
@@ -297,12 +300,16 @@ function getEventCount() {
 }
 
 const updateScoreStmt = db.prepare(`
-  UPDATE events SET asu_score = @asu_score, opp_score = @opp_score, result = @result
+  UPDATE events SET
+    asu_score = @asu_score,
+    opp_score = @opp_score,
+    result = @result,
+    espn_event_id = COALESCE(@espn_event_id, espn_event_id)
   WHERE id = @id
 `);
 
-function updateScore(id, asu_score, opp_score, result) {
-  updateScoreStmt.run({ id, asu_score, opp_score, result });
+function updateScore(id, asu_score, opp_score, result, espn_event_id = null) {
+  updateScoreStmt.run({ id, asu_score, opp_score, result, espn_event_id });
 }
 
 const upsertESPNEventStmt = db.prepare(`
@@ -311,19 +318,20 @@ const upsertESPNEventStmt = db.prepare(`
     location_name, venue_address, city, state, country,
     game_type, event_type, tv_network, ticket_url, ticket_label,
     opponent_logo, badges, image_url, node_url, updated_at,
-    asu_score, opp_score, result
+    asu_score, opp_score, result, espn_event_id
   ) VALUES (
     @id, @title, @sport, @season, @start_date, @end_date,
     @location_name, @venue_address, @city, @state, @country,
     @game_type, @event_type, @tv_network, @ticket_url, @ticket_label,
     @opponent_logo, @badges, @image_url, @node_url, @updated_at,
-    @asu_score, @opp_score, @result
+    @asu_score, @opp_score, @result, @espn_event_id
   )
   ON CONFLICT(id) DO UPDATE SET
     title      = excluded.title,
     asu_score  = excluded.asu_score,
     opp_score  = excluded.opp_score,
     result     = excluded.result,
+    espn_event_id = excluded.espn_event_id,
     updated_at = excluded.updated_at
 `);
 

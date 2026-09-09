@@ -346,10 +346,14 @@ function cleanDisplayAddress(addr) {
 // ── Event modal (existing) with ESPN intercept ────────────────────────────────
 
 function openEventModal(event) {
-  // If there is a live/recent ESPN match, open the box score modal instead
+  // Prefer ESPN's official summary for a live game or a completed game whose
+  // ID was recorded during score sync. This keeps player stats available after
+  // the game has left the short-lived live feed.
   const liveGame = window.__liveData?.[event.id];
-  if (liveGame?.espnEventId && window.openGameDetailModal) {
-    window.openGameDetailModal(liveGame.espnEventId, event.sport, {
+  const espnEventId = liveGame?.espnEventId || event.espn_event_id ||
+    (String(event.id || '').match(/^espn_(\d{1,20})$/)?.[1]);
+  if (espnEventId && window.openGameDetailModal) {
+    window.openGameDetailModal(espnEventId, event.sport, {
       title:     event.title,
       sport:     event.sport,
       startTime: event.start_date,
