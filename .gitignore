@@ -5,3 +5,17 @@ secrets.env
 *.mmdb
 memory/
 CLAUDE_PROJECT_INSTRUCTIONS.md
+
+# Local-only workspace material and generated artifacts
+/AGENTS.md
+/CLAUDE.md
+/PROJECT_BRIEF.md
+/HANDOFF.md
+/handoff/
+
+# Local-only workspace material and generated artifacts
+/.venv*/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.py[cod]
